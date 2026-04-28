@@ -1961,8 +1961,8 @@
             const vaultHistoryEl = $('vault-history');
             const vimBadge = $('vim-badge');
             let autoSaveEnabled = localStorage.getItem('md-editor-autosave') !== 'false';
-            autosaveCheckbox.checked = autoSaveEnabled;
-            restoreCheckbox.checked = autoRestoreEnabled;
+            if (autosaveCheckbox) autosaveCheckbox.checked = autoSaveEnabled;
+            if (restoreCheckbox) restoreCheckbox.checked = autoRestoreEnabled;
             let autoSaveTimer = null;
 
             // ── Editor content helpers ──
@@ -2681,14 +2681,18 @@
             });
 
             // ── Auto-save ──
-            autosaveCheckbox.addEventListener('change', () => {
-                autoSaveEnabled = autosaveCheckbox.checked;
-                localStorage.setItem('md-editor-autosave', autoSaveEnabled);
-            });
-            restoreCheckbox.addEventListener('change', () => {
-                autoRestoreEnabled = restoreCheckbox.checked;
-                localStorage.setItem('md-editor-auto-restore', autoRestoreEnabled);
-            });
+            if (autosaveCheckbox) {
+                autosaveCheckbox.addEventListener('change', () => {
+                    autoSaveEnabled = autosaveCheckbox.checked;
+                    localStorage.setItem('md-editor-autosave', autoSaveEnabled);
+                });
+            }
+            if (restoreCheckbox) {
+                restoreCheckbox.addEventListener('change', () => {
+                    autoRestoreEnabled = restoreCheckbox.checked;
+                    localStorage.setItem('md-editor-auto-restore', autoRestoreEnabled);
+                });
+            }
             function scheduleAutoSave() {
                 if (!autoSaveEnabled || !currentFileHandle || !isUnsaved) return;
                 clearTimeout(autoSaveTimer);
