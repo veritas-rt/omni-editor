@@ -3747,6 +3747,7 @@ body{overflow:auto!important;height:auto!important;font-family:'Inter',sans-seri
                     const docClone = document.cloneNode(true);
                     
                     const safeRemove = (id) => { const el = docClone.getElementById(id); if (el) el.remove(); };
+                    const safeHide = (id) => { const el = docClone.getElementById(id); if (el) el.style.display = 'none'; };
                     const safeEmpty = (id) => { const el = docClone.getElementById(id); if (el) el.innerHTML = ''; };
                     
                     // Clean up current state in the clone
@@ -3776,16 +3777,16 @@ body{overflow:auto!important;height:auto!important;font-family:'Inter',sans-seri
                     const spText = docClone.getElementById('split-textarea');
                     if (spText) spText.textContent = '';
                     
-                    // Remove UI elements not needed in portable mode
-                    safeRemove('btn-vault');
-                    safeRemove('btn-new-file');
-                    safeRemove('btn-daily');
-                    safeRemove('autosave-toggle');
-                    safeRemove('restore-toggle');
-                    safeRemove('btn-export-html');
-                    safeRemove('btn-export-vault');
-                    safeRemove('btn-convert');
-                    safeRemove('drop-overlay');
+                    // Hide UI elements not needed in portable mode instead of removing to avoid JS null errors
+                    safeHide('btn-vault');
+                    safeHide('btn-new-file');
+                    safeHide('btn-daily');
+                    safeHide('autosave-toggle');
+                    safeHide('restore-toggle');
+                    safeHide('btn-export-html');
+                    safeHide('btn-export-vault');
+                    safeHide('btn-convert');
+                    safeHide('drop-overlay');
                     
                     // Inject the portable data script at the end of body
                     const scriptEl = docClone.createElement('script');
