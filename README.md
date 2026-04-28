@@ -1,6 +1,6 @@
 # Omni Editor
 
-[English](README_EN.md)
+[English](README_EN.md) | **[🌐 Live Demo](https://veritas-rt.github.io/omni-editor/)**
 
 Omni Editorは、ブラウザだけで動く1ファイルの万能ローカルエディタ・ビューアです。サーバーやインストールは一切不要で、ChromeやEdgeでHTMLファイルを開くだけで、ローカルフォルダ（Vault）を丸ごと読み込んで編集できます。
 

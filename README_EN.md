@@ -1,6 +1,6 @@
 # Omni Editor
 
-[日本語 (Japanese)](README.md)
+[日本語 (Japanese)](README.md) | **[🌐 Live Demo](https://veritas-rt.github.io/omni-editor/)**
 
 Omni Editor is a versatile, single-file local editor and viewer that runs entirely in your browser. No server or installation is required—just open the HTML file in Chrome or Edge, and you can load and edit your entire local folder (Vault).
 
