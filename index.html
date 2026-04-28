@@ -2299,85 +2299,100 @@
             }
 
             // ── Portable Mode Init ──
-            const portableDataEl = document.getElementById('portable-data');
-            const isPortable = !!portableDataEl;
-
-            if (isPortable) {
+            function detectAndInitPortable() {
+                const portableDataEl = document.getElementById('portable-data');
+                if (!portableDataEl) return false;
+                
                 try {
-                    window.PORTABLE_VAULT = JSON.parse(portableDataEl.textContent);
-                    setupPortableVault();
-                } catch(e) { console.error('Failed to parse portable data', e); }
-            } else {
+                    const data = JSON.parse(portableDataEl.textContent);
+                    if (data && data.files) {
+                        window.PORTABLE_VAULT = data;
+                        setupPortableVault();
+                        return true;
+                    }
+                } catch(e) {
+                    console.error('Failed to init portable mode:', e);
+                }
+                return false;
+            }
+
+            const isPortable = detectAndInitPortable();
+            if (!isPortable) {
                 setTimeout(() => tryRestoreVault(), 100);
             }
 
             function setupPortableVault() {
-                vaultHandle = { name: window.PORTABLE_VAULT.name, kind: 'directory' };
-                vaultNameEl.textContent = vaultHandle.name;
-                statusInfo.textContent = `Portable Vault: ${vaultHandle.name}`;
-                
-                // Hide UI elements not needed in portable mode
-                $('btn-vault').style.display = 'none';
-                $('btn-new-file').style.display = 'none';
-                $('btn-daily').style.display = 'none';
-                $('btn-export-html').style.display = 'none';
-                $('btn-export-vault').style.display = 'none';
-                $('autosave-toggle').style.display = 'none';
-                $('restore-toggle').style.display = 'none';
-                $('drop-overlay').style.display = 'none';
-                $('btn-convert').style.display = 'none';
-                
-                const pElems = welcomeScreen.querySelectorAll('p');
-                if (pElems.length > 0) pElems[0].textContent = 'サイドバーからファイルを選択してください';
-                if (pElems.length > 1) pElems[1].style.display = 'none';
-                const dropHint = welcomeScreen.querySelector('.welcome-drop-hint');
-                if (dropHint) dropHint.style.display = 'none';
-
-                autoSaveEnabled = false;
-                autoRestoreEnabled = false;
-
-                allFiles = [];
-                fileTree = [];
-
-                const filesData = window.PORTABLE_VAULT.files;
-                
-                for (const [path, data] of Object.entries(filesData)) {
-                    const parts = path.split('/');
-                    const name = parts[parts.length - 1];
-                    const node = {
-                        name, path, kind: 'file',
-                        handle: {
-                            kind: 'file', name,
-                            getFile: async () => {
-                                if (data.startsWith('data:')) {
-                                    const res = await fetch(data);
-                                    const blob = await res.blob();
-                                    return new File([blob], name, { type: blob.type });
-                                } else {
-                                    const type = isMarkdown(name) ? 'text/markdown' : 'text/plain';
-                                    return new File([data], name, { type });
-                                }
-                            },
-                            createWritable: async () => ({ write: async () => toast('読み取り専用です'), close: async () => {} })
-                        }, children: null
-                    };
-                    allFiles.push(node);
+                try {
+                    const data = window.PORTABLE_VAULT;
+                    vaultHandle = { name: data.name || 'Portable Vault', kind: 'directory' };
+                    if (vaultNameEl) vaultNameEl.textContent = vaultHandle.name;
+                    if (statusInfo) statusInfo.textContent = `Portable: ${vaultHandle.name}`;
                     
-                    let currentLevel = fileTree;
-                    for (let i = 0; i < parts.length - 1; i++) {
-                        const part = parts[i];
-                        let dirNode = currentLevel.find(n => n.name === part && n.kind === 'directory');
-                        if (!dirNode) {
-                            dirNode = { name: part, path: parts.slice(0, i + 1).join('/'), kind: 'directory', children: [] };
-                            currentLevel.push(dirNode);
-                        }
-                        currentLevel = dirNode.children;
+                    // Hide UI elements
+                    const elementsToHide = [
+                        'btn-vault', 'btn-new-file', 'btn-daily', 'btn-export-html', 
+                        'btn-export-vault', 'btn-convert', 'autosave-toggle', 'restore-toggle', 'drop-overlay'
+                    ];
+                    elementsToHide.forEach(id => { const el = $(id); if (el) el.style.display = 'none'; });
+                    
+                    if (welcomeScreen) {
+                        const pElems = welcomeScreen.querySelectorAll('p');
+                        if (pElems.length > 0) pElems[0].textContent = 'サイドバーからファイルを選択してください';
+                        if (pElems.length > 1) pElems[1].style.display = 'none';
+                        const dropHint = welcomeScreen.querySelector('.welcome-drop-hint');
+                        if (dropHint) dropHint.style.display = 'none';
                     }
-                    currentLevel.push(node);
+
+                    autoSaveEnabled = false;
+                    autoRestoreEnabled = false;
+
+                    allFiles = [];
+                    fileTree = [];
+
+                    for (const [path, content] of Object.entries(data.files)) {
+                        const parts = path.split('/');
+                        const name = parts[parts.length - 1];
+                        const node = {
+                            name, path, kind: 'file',
+                            handle: {
+                                kind: 'file', name,
+                                getFile: async () => {
+                                    if (content.startsWith('data:')) {
+                                        const res = await fetch(content);
+                                        const blob = await res.blob();
+                                        return new File([blob], name, { type: blob.type });
+                                    } else {
+                                        const type = isMarkdown(name) ? 'text/markdown' : 'text/plain';
+                                        return new File([content], name, { type });
+                                    }
+                                },
+                                createWritable: async () => ({ write: async () => toast('読み取り専用です'), close: async () => {} })
+                            }, children: null
+                        };
+                        allFiles.push(node);
+                        
+                        let currentLevel = fileTree;
+                        for (let i = 0; i < parts.length - 1; i++) {
+                            const part = parts[i];
+                            let dirNode = currentLevel.find(n => n.name === part && n.kind === 'directory');
+                            if (!dirNode) {
+                                dirNode = { name: part, path: parts.slice(0, i + 1).join('/'), kind: 'directory', children: [] };
+                                currentLevel.push(dirNode);
+                            }
+                            currentLevel = dirNode.children;
+                        }
+                        currentLevel.push(node);
+                    }
+                    
+                    renderTree();
+                    // Restore last file only if it exists in the portable vault
+                    const lastFile = getLastFile();
+                    if (lastFile && allFiles.some(f => f.path === lastFile)) {
+                        restoreLastFile();
+                    }
+                } catch(e) {
+                    console.error('setupPortableVault failed:', e);
                 }
-                
-                renderTree();
-                restoreLastFile();
             }
 
             // ── Auto-restore vault on startup ──
