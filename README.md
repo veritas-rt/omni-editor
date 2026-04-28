@@ -1,5 +1,7 @@
 # Omni Editor
 
+[English](README_EN.md)
+
 Omni Editorは、ブラウザだけで動く1ファイルの万能ローカルエディタ・ビューアです。サーバーやインストールは一切不要で、ChromeやEdgeでHTMLファイルを開くだけで、ローカルフォルダ（Vault）を丸ごと読み込んで編集できます。
 
 Markdownの執筆はもちろん、画像、動画、音声、CSV、JSONなど様々なファイルのプレビューに対応しています。
