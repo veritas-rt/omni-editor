@@ -1581,11 +1581,9 @@
                     <path d="M5 18h4M7 16v4"/>
                 </svg>
             </button>
-            <button class="btn btn-icon" id="btn-export-html" title="HTMLエクスポート" disabled>
+            <button class="btn btn-icon" id="btn-export-html" title="ポータブル版をエクスポート" disabled>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line>
                 </svg>
             </button>
             <button class="btn btn-icon" id="btn-print" title="印刷 (Ctrl+Shift+P)" disabled>
@@ -2300,32 +2298,91 @@
                 }
             }
 
-            // ── Auto-restore vault on startup ──
-            async function tryRestoreVault() {
-                if (!autoRestoreEnabled) return;
+            // ── Portable Mode Init ──
+            const portableDataEl = document.getElementById('portable-data');
+            const isPortable = !!portableDataEl;
+
+            if (isPortable) {
                 try {
-                    const savedHandle = await loadVaultHandle();
-                    if (!savedHandle) return;
-                    const permission = await savedHandle.requestPermission({ mode: 'readwrite' });
-                    if (permission !== 'granted') return;
-                    vaultHandle = savedHandle;
-                    vaultNameEl.textContent = vaultHandle.name;
-                    $('btn-new-file').disabled = false;
-                    $('btn-daily').disabled = false;
-                    $('btn-convert').disabled = false;
-                    await refreshTree();
-                    statusInfo.textContent = `Vault: ${vaultHandle.name} (restored)`;
-                    toast('Vaultを自動再開しました');
-                    await restoreLastFile();
-                } catch (e) {
-                    console.error('Failed to restore vault:', e);
-                    if (e.name === 'NotFoundError') await clearVaultHandle();
-                }
+                    window.PORTABLE_VAULT = JSON.parse(portableDataEl.textContent);
+                    setupPortableVault();
+                } catch(e) { console.error('Failed to parse portable data', e); }
+            } else {
+                setTimeout(() => tryRestoreVault(), 100);
             }
 
-            setTimeout(() => tryRestoreVault(), 100);
+            function setupPortableVault() {
+                vaultHandle = { name: window.PORTABLE_VAULT.name, kind: 'directory' };
+                vaultNameEl.textContent = vaultHandle.name;
+                statusInfo.textContent = `Portable Vault: ${vaultHandle.name}`;
+                
+                // Hide UI elements not needed in portable mode
+                $('btn-vault').style.display = 'none';
+                $('btn-new-file').style.display = 'none';
+                $('btn-daily').style.display = 'none';
+                $('btn-export-html').style.display = 'none';
+                $('btn-export-vault').style.display = 'none';
+                $('autosave-toggle').style.display = 'none';
+                $('restore-toggle').style.display = 'none';
+                $('drop-overlay').style.display = 'none';
+                $('btn-convert').style.display = 'none';
+                
+                const pElems = welcomeScreen.querySelectorAll('p');
+                if (pElems.length > 0) pElems[0].textContent = 'サイドバーからファイルを選択してください';
+                if (pElems.length > 1) pElems[1].style.display = 'none';
+                const dropHint = welcomeScreen.querySelector('.welcome-drop-hint');
+                if (dropHint) dropHint.style.display = 'none';
 
-            // ── Build file tree ──
+                autoSaveEnabled = false;
+                autoRestoreEnabled = false;
+
+                allFiles = [];
+                fileTree = [];
+
+                const filesData = window.PORTABLE_VAULT.files;
+                
+                for (const [path, data] of Object.entries(filesData)) {
+                    const parts = path.split('/');
+                    const name = parts[parts.length - 1];
+                    const node = {
+                        name, path, kind: 'file',
+                        handle: {
+                            kind: 'file', name,
+                            getFile: async () => {
+                                if (data.startsWith('data:')) {
+                                    const res = await fetch(data);
+                                    const blob = await res.blob();
+                                    return Object.assign(blob, { name: name });
+                                } else {
+                                    return {
+                                        size: new Blob([data]).size,
+                                        text: async () => data
+                                    };
+                                }
+                            },
+                            createWritable: async () => ({ write: async () => toast('読み取り専用です'), close: async () => {} })
+                        }, children: null
+                    };
+                    allFiles.push(node);
+                    
+                    let currentLevel = fileTree;
+                    for (let i = 0; i < parts.length - 1; i++) {
+                        const part = parts[i];
+                        let dirNode = currentLevel.find(n => n.name === part && n.kind === 'directory');
+                        if (!dirNode) {
+                            dirNode = { name: part, path: parts.slice(0, i + 1).join('/'), kind: 'directory', children: [] };
+                            currentLevel.push(dirNode);
+                        }
+                        currentLevel = dirNode.children;
+                    }
+                    currentLevel.push(node);
+                }
+                
+                renderTree();
+                restoreLastFile();
+            }
+
+            // ── Auto-restore vault on startup ──
             async function buildTree(dirHandle, parentPath = '') {
                 const entries = [];
                 for await (const [name, handle] of dirHandle.entries()) {
@@ -3637,60 +3694,53 @@ body{overflow:auto!important;height:auto!important;font-family:'Inter',sans-seri
                 }
             });
 
-            // ── HTML Export ──
-            $('btn-export-html').addEventListener('click', exportHTML);
-            async function exportHTML() {
-                if (!currentFilePath) { toast('ファイルを開いてください'); return; }
-                const contentToParse = formatTextContentForPreview(getEditorContent(), currentFilePath);
-                const tempDiv = document.createElement('div');
-                const fm = processFrontmatter(contentToParse);
-                tempDiv.innerHTML = fm.html + processAlerts(marked.parse(fm.md));
-                tempDiv.querySelectorAll('pre code').forEach(b => { if (!b.classList.contains('hljs')) hljs.highlightElement(b); });
-                const isLight = document.body.classList.contains('light-mode');
-                const hljsTheme = isLight ? 'github' : 'github-dark';
-                const appCSS = document.querySelector('style')?.textContent || '';
-                const title = currentFilePath.split('/').pop().replace(/\.\w+$/, '');
-                const out = `<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>${escapeHtml(title)}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${hljsTheme}.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"><\/script>
-<style>${appCSS}
-body{overflow:auto!important;height:auto!important;font-family:'Inter',sans-serif;background:var(--bg-primary);color:var(--text-primary);padding:32px;}</style>
-</head>
-<body class="${isLight ? 'light-mode' : ''}">
-<article class="markdown-body" style="max-width:880px;margin:0 auto;">${tempDiv.innerHTML}</article>
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const blocks = document.querySelectorAll('code.language-mermaid');
-        blocks.forEach(block => {
-            const pre = block.closest('pre');
-            const wrapper = pre?.parentElement;
-            if (!wrapper) return;
-            const el = document.createElement('div');
-            el.className = 'mermaid';
-            el.textContent = block.textContent;
-            wrapper.replaceWith(el);
-        });
-        if (blocks.length > 0 && window.mermaid) {
-            mermaid.initialize({ startOnLoad: true, theme: '${isLight ? 'default' : 'dark'}' });
-            mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
-        }
-    });
-<\/script>
-</body></html>`;
-                const a = Object.assign(document.createElement('a'), {
-                    href: URL.createObjectURL(new Blob([out], { type: 'text/html;charset=utf-8' })),
-                    download: title + '.html'
-                });
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                URL.revokeObjectURL(a.href);
-                toast('HTMLをエクスポートしました ✓');
+            // ── Portable HTML Export ──
+            $('btn-export-html').addEventListener('click', exportPortableHTML);
+            async function exportPortableHTML() {
+                if (!vaultHandle) { toast('Vaultを開いてください'); return; }
+                toast('ポータブル版を生成中...', 3000);
+                try {
+                    const res = await fetch(window.location.pathname); // fetch the clean HTML source
+                    let htmlText = await res.text();
+                    
+                    const portableData = {
+                        name: vaultHandle.name,
+                        files: {}
+                    };
+                    
+                    for (const f of allFiles) {
+                        try {
+                            const file = await f.handle.getFile();
+                            if (isTextLikely(f.name) || isMarkdown(f.name)) {
+                                portableData.files[f.path] = await file.text();
+                            } else if (file.size < 5 * 1024 * 1024) { // Limit to 5MB for assets
+                                const reader = new FileReader();
+                                const dataUri = await new Promise((resolve) => {
+                                    reader.onload = () => resolve(reader.result);
+                                    reader.readAsDataURL(file);
+                                });
+                                portableData.files[f.path] = dataUri;
+                            }
+                        } catch(e) {}
+                    }
+                    
+                    const jsonStr = JSON.stringify(portableData).replace(/</g, '\\u003c');
+                    const injectScript = `<script id="portable-data" type="application/json">${jsonStr}<\/script>\n</body>`;
+                    htmlText = htmlText.replace('</body>', injectScript);
+                    
+                    const blob = new Blob([htmlText], { type: 'text/html;charset=utf-8' });
+                    const a = Object.assign(document.createElement('a'), {
+                        href: URL.createObjectURL(blob),
+                        download: vaultHandle.name + '_portable.html'
+                    });
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    URL.revokeObjectURL(a.href);
+                    toast('ポータブル版をエクスポートしました ✓');
+                    
+                } catch(e) {
+                    console.error(e);
+                    toast('エクスポートに失敗しました (ローカルサーバーまたはHTTPS上で動作している必要があります)');
+                }
             }
 
             // ── Print ──
@@ -3719,7 +3769,7 @@ body{overflow:auto!important;height:auto!important;font-family:'Inter',sans-seri
                 if (ctrl && e.key === 'h') { e.preventDefault(); openFindReplace(); }
                 if (ctrl && e.shiftKey && e.key === 'F') { e.preventDefault(); openGrep(); }
                 if (ctrl && e.shiftKey && e.key === 'O') { e.preventDefault(); openVault(); }
-                if (ctrl && e.shiftKey && e.key === 'E') { e.preventDefault(); exportHTML(); }
+                if (ctrl && e.shiftKey && e.key === 'E') { e.preventDefault(); exportPortableHTML(); }
                 if (ctrl && e.shiftKey && e.key === 'P') { e.preventDefault(); if (currentFilePath) { updatePreview(); window.print(); } }
                 if (ctrl && e.altKey && e.key === 'v') { e.preventDefault(); toggleVimMode(); }
                 if (ctrl && e.key === 'e') {
