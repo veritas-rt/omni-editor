@@ -2381,6 +2381,28 @@
             }
 
             // ── Auto-restore vault on startup ──
+            async function tryRestoreVault() {
+                if (!autoRestoreEnabled) return;
+                try {
+                    const savedHandle = await loadVaultHandle();
+                    if (!savedHandle) return;
+                    const permission = await savedHandle.requestPermission({ mode: 'readwrite' });
+                    if (permission !== 'granted') return;
+                    vaultHandle = savedHandle;
+                    vaultNameEl.textContent = vaultHandle.name;
+                    $('btn-new-file').disabled = false;
+                    $('btn-daily').disabled = false;
+                    $('btn-convert').disabled = false;
+                    await refreshTree();
+                    statusInfo.textContent = `Vault: ${vaultHandle.name} (restored)`;
+                    toast('Vaultを自動再開しました');
+                    await restoreLastFile();
+                } catch (e) {
+                    console.error('Failed to restore vault:', e);
+                    if (e.name === 'NotFoundError') await clearVaultHandle();
+                }
+            }
+
             async function buildTree(dirHandle, parentPath = '') {
                 const entries = [];
                 for await (const [name, handle] of dirHandle.entries()) {
