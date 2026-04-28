@@ -1,0 +1,3795 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Omni Editor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
+        id="hljs-theme">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked-katex-extension/lib/index.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #1c2129;
+            --bg-card: #1c2129;
+            --bg-sidebar: #13171e;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #484f58;
+            --border: #30363d;
+            --accent: #58a6ff;
+            --accent-glow: rgba(88, 166, 255, 0.15);
+            --accent-hover: #79c0ff;
+            --green: #3fb950;
+            --red: #f85149;
+            --orange: #d29922;
+            --purple: #bc8cff;
+            --code-bg: #0d1117;
+            --blockquote-border: #3b82f6;
+            --table-border: #30363d;
+            --table-row-alt: #161b22;
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --sidebar-width: 260px;
+            --toolbar-height: 48px;
+            --statusbar-height: 28px;
+        }
+
+        .light-mode {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f6f8fa;
+            --bg-tertiary: #f0f2f5;
+            --bg-card: #ffffff;
+            --bg-sidebar: #f0f2f5;
+            --text-primary: #1f2328;
+            --text-secondary: #656d76;
+            --text-muted: #8b949e;
+            --border: #d0d7de;
+            --accent: #0969da;
+            --accent-glow: rgba(9, 105, 218, 0.1);
+            --accent-hover: #0550ae;
+            --green: #1a7f37;
+            --red: #cf222e;
+            --orange: #9a6700;
+            --purple: #8250df;
+            --code-bg: #f6f8fa;
+            --blockquote-border: #3b82f6;
+            --table-border: #d0d7de;
+            --table-row-alt: #f6f8fa;
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow: hidden;
+            height: 100vh;
+            transition: background var(--transition), color var(--transition);
+        }
+
+        /* ── Toolbar ── */
+        .toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--toolbar-height);
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            z-index: 200;
+            backdrop-filter: blur(12px);
+        }
+
+        .toolbar-left,
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toolbar-logo {
+            font-size: 16px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+            margin-right: 8px;
+        }
+
+        .toolbar-center {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .file-path {
+            font-size: 12px;
+            color: var(--text-muted);
+            max-width: 500px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .unsaved-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--orange);
+            display: none;
+            flex-shrink: 0;
+        }
+
+        .unsaved-dot.visible {
+            display: block;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all var(--transition);
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-glow);
+        }
+
+        .btn svg {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+
+        .btn-accent {
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            color: #fff;
+            border: none;
+            font-weight: 500;
+        }
+
+        .btn-accent:hover {
+            opacity: 0.9;
+            color: #fff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(88, 166, 255, 0.3);
+        }
+
+        .btn-icon {
+            padding: 5px 7px;
+        }
+
+        /* ── Layout ── */
+        .app-layout {
+            display: flex;
+            height: calc(100vh - var(--toolbar-height) - var(--statusbar-height));
+            margin-top: var(--toolbar-height);
+        }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: var(--sidebar-width);
+            min-width: 180px;
+            max-width: 500px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            transition: width 0.2s ease, min-width 0.2s ease;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .sidebar.collapsed {
+            width: 0 !important;
+            min-width: 0 !important;
+            border-right: none;
+        }
+
+        .sidebar-header {
+            padding: 12px 12px 8px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .vault-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .sidebar-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .sidebar-actions button {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            display: flex;
+            transition: all 0.2s;
+        }
+
+        .sidebar-actions button:hover {
+            color: var(--accent);
+            background: var(--accent-glow);
+        }
+
+        .sidebar-actions button svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .file-tree {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 4px 0;
+        }
+
+        .tree-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-secondary);
+            transition: all 0.15s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            border-radius: 4px;
+            margin: 1px 4px;
+        }
+
+        .tree-item:hover {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+        .tree-item.active {
+            background: var(--accent-glow);
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        .tree-item svg {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+            opacity: 0.6;
+        }
+
+        .tree-item.dir svg {
+            color: var(--accent);
+            opacity: 0.8;
+        }
+
+        .tree-item .name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tree-children {
+            display: none;
+        }
+
+        .tree-children.open {
+            display: block;
+        }
+
+        .tree-indent {
+            width: 16px;
+            flex-shrink: 0;
+        }
+
+        /* ── Resize Handle ── */
+        .resize-handle {
+            width: 4px;
+            cursor: col-resize;
+            background: transparent;
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 10;
+            transition: background 0.2s;
+        }
+
+        .resize-handle:hover,
+        .resize-handle.active {
+            background: var(--accent);
+        }
+
+        /* ── Main Area ── */
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            min-height: 0;
+        }
+
+        .mode-tabs {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            padding: 0 16px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-secondary);
+            flex-shrink: 0;
+            height: 36px;
+        }
+
+        .mode-tab {
+            padding: 6px 16px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-family: inherit;
+            position: relative;
+            transition: color 0.2s;
+        }
+
+        .mode-tab:hover {
+            color: var(--text-secondary);
+        }
+
+        .mode-tab.active {
+            color: var(--accent);
+        }
+
+        .mode-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--accent);
+            border-radius: 1px 1px 0 0;
+        }
+
+        .editor-area,
+        .preview-area {
+            flex: 1;
+            overflow-y: auto;
+            display: none;
+            min-height: 0;
+        }
+
+        .editor-area.active,
+        .preview-area.active {
+            display: block;
+        }
+
+        .editor-area textarea {
+            width: 100%;
+            height: 100%;
+            resize: none;
+            border: none;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.7;
+            padding: 24px 32px;
+            outline: none;
+            tab-size: 4;
+        }
+
+        /* ── Welcome Screen ── */
+        .welcome {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+            color: var(--text-muted);
+        }
+
+        .welcome-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+        }
+
+        .welcome-icon svg {
+            width: 36px;
+            height: 36px;
+            color: #fff;
+        }
+
+        .welcome h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.3px;
+        }
+
+        .welcome p {
+            font-size: 14px;
+            text-align: center;
+            max-width: 400px;
+        }
+
+        .welcome .kbd {
+            display: inline-flex;
+            padding: 2px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+
+        /* ── Status Bar ── */
+        .statusbar {
+            height: var(--statusbar-height);
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .statusbar-left,
+        .statusbar-right {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        /* ── Search Modal ── */
+        .search-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 500;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 15vh;
+        }
+
+        .search-overlay.active {
+            display: flex;
+        }
+
+        .search-box {
+            width: 500px;
+            max-width: 90vw;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 15px;
+            outline: none;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .search-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-results {
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+
+        .search-result-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            transition: all 0.15s;
+        }
+
+        .search-result-item:hover,
+        .search-result-item.selected {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+        .search-result-item svg {
+            width: 14px;
+            height: 14px;
+            opacity: 0.5;
+            flex-shrink: 0;
+        }
+
+        .search-result-path {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+
+        /* ── New file dialog ── */
+        .dialog-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 600;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dialog-overlay.active {
+            display: flex;
+        }
+
+        .dialog-box {
+            width: 400px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 24px;
+        }
+
+        .dialog-box h3 {
+            font-size: 15px;
+            margin-bottom: 12px;
+        }
+
+        .dialog-box input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            margin-bottom: 16px;
+        }
+
+        .dialog-box input:focus {
+            border-color: var(--accent);
+        }
+
+        .dialog-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        /* ── Preview markdown (reuse md-viewer styles) ── */
+        .preview-area {
+            padding: 32px;
+        }
+
+        .markdown-body {
+            max-width: 880px;
+            margin: 0 auto;
+            font-size: 16px;
+            line-height: 1.75;
+            color: var(--text-primary);
+        }
+
+        .markdown-body h1,
+        .markdown-body h2,
+        .markdown-body h3,
+        .markdown-body h4,
+        .markdown-body h5,
+        .markdown-body h6 {
+            margin-top: 2em;
+            margin-bottom: 0.75em;
+            font-weight: 600;
+            line-height: 1.3;
+            letter-spacing: -0.3px;
+        }
+
+        .markdown-body h1 {
+            font-size: 2em;
+            padding-bottom: 0.4em;
+            border-bottom: 2px solid var(--border);
+            background: linear-gradient(135deg, var(--text-primary), var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .markdown-body h2 {
+            font-size: 1.5em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .markdown-body h3 {
+            font-size: 1.25em;
+        }
+
+        .markdown-body h4 {
+            font-size: 1.1em;
+        }
+
+        .markdown-body p {
+            margin-bottom: 1em;
+        }
+
+        .markdown-body strong {
+            font-weight: 600;
+        }
+
+        .markdown-body a {
+            color: var(--accent);
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: border-color var(--transition);
+        }
+
+        .markdown-body a:hover {
+            border-bottom-color: var(--accent);
+        }
+
+        .markdown-body ul,
+        .markdown-body ol {
+            margin-bottom: 1em;
+            padding-left: 2em;
+        }
+
+        .markdown-body li {
+            margin-bottom: 0.35em;
+        }
+
+        .markdown-body input[type="checkbox"] {
+            margin-right: 8px;
+            accent-color: var(--accent);
+            transform: scale(1.1);
+        }
+
+        .markdown-body blockquote {
+            margin: 1em 0;
+            padding: 12px 20px;
+            border-left: 4px solid var(--blockquote-border);
+            background: var(--bg-secondary);
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            color: var(--text-secondary);
+        }
+
+        .markdown-body blockquote p:last-child {
+            margin-bottom: 0;
+        }
+
+        .markdown-body .alert {
+            margin: 1em 0;
+            padding: 16px 20px;
+            border-radius: var(--radius-sm);
+            border-left: 4px solid;
+        }
+
+        .markdown-body .alert-note {
+            border-color: var(--accent);
+            background: rgba(88, 166, 255, 0.08);
+        }
+
+        .markdown-body .alert-tip {
+            border-color: var(--green);
+            background: rgba(63, 185, 80, 0.08);
+        }
+
+        .markdown-body .alert-important {
+            border-color: var(--purple);
+            background: rgba(188, 140, 255, 0.08);
+        }
+
+        .markdown-body .alert-warning {
+            border-color: var(--orange);
+            background: rgba(210, 153, 34, 0.08);
+        }
+
+        .markdown-body .alert-caution {
+            border-color: var(--red);
+            background: rgba(248, 81, 73, 0.08);
+        }
+
+        .markdown-body .alert-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .markdown-body .alert-note .alert-title {
+            color: var(--accent);
+        }
+
+        .markdown-body .alert-tip .alert-title {
+            color: var(--green);
+        }
+
+        .markdown-body .alert-important .alert-title {
+            color: var(--purple);
+        }
+
+        .markdown-body .alert-warning .alert-title {
+            color: var(--orange);
+        }
+
+        .markdown-body .alert-caution .alert-title {
+            color: var(--red);
+        }
+
+        .markdown-body code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875em;
+            padding: 0.2em 0.5em;
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--accent-hover);
+        }
+
+        .markdown-body pre {
+            margin: 1em 0;
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: var(--code-bg);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .markdown-body pre code {
+            display: block;
+            padding: 20px 24px;
+            overflow-x: auto;
+            border: none;
+            background: none;
+            font-size: 13.5px;
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .copy-btn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .copy-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .copy-btn.copied {
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        .copy-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .markdown-body table {
+            width: 100%;
+            margin: 1em 0;
+            border-collapse: collapse;
+            border: 1px solid var(--table-border);
+            font-size: 14px;
+        }
+
+        .markdown-body th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            text-align: left;
+            padding: 12px 16px;
+            border-bottom: 2px solid var(--table-border);
+        }
+
+        .markdown-body td {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--table-border);
+        }
+
+        .markdown-body tr:nth-child(even) td {
+            background: var(--table-row-alt);
+        }
+
+        .markdown-body hr {
+            border: none;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--border), transparent);
+            margin: 2em 0;
+        }
+
+        .markdown-body img {
+            max-width: 100%;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            margin: 1em 0;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* ── Split View ── */
+        .split-container {
+            display: none;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .split-container.active {
+            display: flex;
+        }
+
+        .split-editor,
+        .split-preview {
+            flex: 1;
+            overflow-y: auto;
+            min-width: 0;
+        }
+
+        .split-editor {
+            border-right: 1px solid var(--border);
+        }
+
+        .split-editor textarea {
+            width: 100%;
+            height: 100%;
+            resize: none;
+            border: none;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.7;
+            padding: 24px 32px;
+            outline: none;
+            tab-size: 4;
+        }
+
+        .split-preview {
+            padding: 32px;
+        }
+
+        .split-preview .markdown-body {
+            max-width: none;
+        }
+
+        /* ── Outline Panel ── */
+        .outline-panel {
+            width: 220px;
+            min-width: 180px;
+            max-width: 300px;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .outline-panel.open {
+            display: flex;
+        }
+
+        .outline-header {
+            padding: 12px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .outline-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .outline-item {
+            padding: 4px 16px;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            border-left: 2px solid transparent;
+            transition: all 0.15s;
+        }
+
+        .outline-item:hover {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+            border-left-color: var(--accent);
+        }
+
+        .outline-item.h1 {
+            padding-left: 16px;
+            font-weight: 600;
+        }
+
+        .outline-item.h2 {
+            padding-left: 28px;
+        }
+
+        .outline-item.h3 {
+            padding-left: 40px;
+            font-size: 12px;
+        }
+
+        .outline-item.h4 {
+            padding-left: 52px;
+            font-size: 12px;
+        }
+
+        .outline-item.h5 {
+            padding-left: 64px;
+            font-size: 11px;
+        }
+
+        .outline-item.h6 {
+            padding-left: 76px;
+            font-size: 11px;
+        }
+
+        /* ── Full-text Search Overlay ── */
+        .grep-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 800;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 15vh;
+        }
+
+        .grep-overlay.active {
+            display: flex;
+        }
+
+        .grep-box {
+            width: 600px;
+            max-width: 90vw;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .grep-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: none;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        .grep-results {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .grep-file-group {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .grep-file-name {
+            padding: 8px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent);
+            background: var(--bg-secondary);
+        }
+
+        .grep-match {
+            padding: 4px 16px 4px 24px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .grep-match:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .grep-match mark {
+            background: transparent;
+            color: var(--yellow, #e3b341);
+            font-weight: 600;
+        }
+
+        .grep-match .line-num {
+            color: var(--text-muted);
+            margin-right: 8px;
+            font-size: 11px;
+        }
+
+        /* ── Wiki Link Converter Overlay ── */
+        .convert-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 800;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .convert-overlay.active {
+            display: flex;
+        }
+
+        .convert-box {
+            width: 640px;
+            max-width: 90vw;
+            max-height: 80vh;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .convert-header {
+            padding: 16px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .convert-header select {
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 12px;
+        }
+
+        .convert-diffs {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .convert-diff-file {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .convert-diff-file-name {
+            padding: 8px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent);
+            background: var(--bg-primary);
+        }
+
+        .convert-diff-line {
+            padding: 3px 16px;
+            font-size: 13px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .convert-diff-line.old {
+            background: rgba(248, 81, 73, 0.15);
+            color: var(--red);
+        }
+
+        .convert-diff-line.new {
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--green);
+        }
+
+        .convert-actions {
+            padding: 12px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .convert-empty {
+            padding: 32px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* ── Auto-save indicator ── */
+        .autosave-toggle {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            color: var(--text-muted);
+            user-select: none;
+        }
+
+        .autosave-toggle input {
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        .autosave-toggle.saved {
+            color: var(--green);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* ── Binary/Image Viewer ── */
+        .viewer-area {
+            flex: 1;
+            overflow: auto;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            background: var(--bg-primary);
+        }
+
+        .viewer-area.active {
+            display: flex;
+        }
+
+        .viewer-area img {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            object-fit: contain;
+        }
+
+        .viewer-area .file-info-card {
+            text-align: center;
+            padding: 48px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            max-width: 400px;
+        }
+
+        .viewer-area .file-info-card svg {
+            width: 48px;
+            height: 48px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .viewer-area .file-info-card h3 {
+            font-size: 16px;
+            margin-bottom: 4px;
+            word-break: break-all;
+        }
+
+        .viewer-area .file-info-card p {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 48px;
+            right: 24px;
+            z-index: 900;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            background: var(--green);
+            color: #fff;
+            font-weight: 500;
+            box-shadow: var(--shadow);
+            transform: translateY(20px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* ── CodeMirror ── */
+        .editor-area.active {
+            display: flex !important;
+            flex-direction: column;
+        }
+        #cm-editor {
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+        .cm-editor {
+            height: 100% !important;
+        }
+        .cm-editor.cm-focused {
+            outline: none !important;
+        }
+        .cm-scroller {
+            overflow: auto !important;
+        }
+
+        /* ── Find & Replace ── */
+        .fr-overlay {
+            display: none;
+            position: fixed;
+            top: var(--toolbar-height);
+            right: 0;
+            z-index: 700;
+            padding: 8px;
+        }
+        .fr-overlay.active { display: block; }
+        .fr-box {
+            width: 420px;
+            max-width: 90vw;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        .fr-header {
+            padding: 8px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .fr-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+        .fr-row { display: flex; gap: 6px; align-items: center; }
+        .fr-input {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+            min-width: 0;
+        }
+        .fr-input:focus { border-color: var(--accent); }
+        .fr-count {
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            min-width: 44px;
+            text-align: right;
+        }
+
+        /* ── Drag & Drop overlay ── */
+        .main-area { position: relative; }
+        .drop-overlay {
+            display: none;
+            position: absolute;
+            inset: 0;
+            z-index: 400;
+            background: rgba(88, 166, 255, 0.08);
+            border: 2px dashed var(--accent);
+            border-radius: 8px;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+            pointer-events: none;
+        }
+        .drop-overlay.active { display: flex; }
+        .drop-overlay svg { color: var(--accent); opacity: 0.8; }
+        .drop-overlay-text { font-size: 15px; font-weight: 600; color: var(--accent); }
+
+        /* ── Vault History ── */
+        .vault-history { margin-top: 20px; width: 300px; }
+        .vault-history-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+        .vault-history-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 13px;
+            transition: all 0.15s;
+            margin-bottom: 4px;
+        }
+        .vault-history-item:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-glow);
+        }
+        .vault-history-item svg { width: 14px; height: 14px; flex-shrink: 0; color: var(--accent); }
+
+        /* ── Welcome drop hint ── */
+        .welcome-drop-hint {
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .welcome-drop-hint svg { width: 14px; height: 14px; }
+
+        /* ── Vim mode indicator ── */
+        .vim-badge {
+            display: none;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background: var(--purple);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .vim-badge.active { display: inline-block; }
+
+        /* ── Print ── */
+        @media print {
+            .toolbar, .sidebar, .statusbar, .mode-tabs,
+            .outline-panel, .resize-handle,
+            .search-overlay, .grep-overlay, .convert-overlay,
+            .help-overlay, .dialog-overlay, .fr-overlay,
+            .drop-overlay, .toast { display: none !important; }
+            body { overflow: auto !important; height: auto !important; }
+            .app-layout { height: auto !important; margin-top: 0 !important; }
+            .main-area { height: auto !important; overflow: visible !important; position: static !important; }
+            #editor-wrapper { display: block !important; height: auto !important; }
+            .editor-area, .split-container, .viewer-area, #cm-editor { display: none !important; }
+            .preview-area { display: block !important; height: auto !important; overflow: visible !important; padding: 24px !important; }
+            .markdown-body { max-width: 720px !important; margin: 0 auto !important; }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <div class="toolbar-logo">Omni Editor</div>
+            <button class="btn btn-accent" id="btn-vault" title="Vaultを開く (Ctrl+Shift+O)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+                </svg>
+                Vault
+            </button>
+            <button class="btn" id="btn-new-file" title="新規ファイル" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="12" y1="18" x2="12" y2="12" />
+                    <line x1="9" y1="15" x2="15" y2="15" />
+                </svg>
+                新規
+            </button>
+            <button class="btn" id="btn-daily" title="Daily Note" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                Today
+            </button>
+            <button class="btn" id="btn-convert" title="Wiki Link変換" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="17 1 21 5 17 9" />
+                    <path d="M3 11V9a4 4 0 014-4h14" />
+                    <polyline points="7 23 3 19 7 15" />
+                    <path d="M21 13v2a4 4 0 01-4 4H3" />
+                </svg>
+                Wiki変換
+            </button>
+        </div>
+        <div class="toolbar-center">
+            <span class="unsaved-dot" id="unsaved-dot"></span>
+            <span class="file-title" id="file-title"></span>
+            <span class="file-path" id="file-path-display"></span>
+        </div>
+        <div class="toolbar-right">
+            <button class="btn btn-icon" id="btn-findreplace" title="検索と置換 (Ctrl+H)" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="10" cy="10" r="6"/><path d="m21 21-4.35-4.35"/>
+                    <path d="M5 18h4M7 16v4"/>
+                </svg>
+            </button>
+            <button class="btn btn-icon" id="btn-export-html" title="HTMLエクスポート" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+            </button>
+            <button class="btn btn-icon" id="btn-print" title="印刷 (Ctrl+Shift+P)" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 6 2 18 2 18 9"/>
+                    <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
+                    <rect x="6" y="14" width="12" height="8"/>
+                </svg>
+            </button>
+            <button class="btn btn-icon" id="btn-search" title="検索 (Ctrl+P)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+            </button>
+            <button class="btn btn-icon" id="btn-outline-toggle" title="アウトライン">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="6" x2="15" y2="6" />
+                    <line x1="3" y1="12" x2="21" y2="12" />
+                    <line x1="3" y1="18" x2="18" y2="18" />
+                </svg>
+            </button>
+            <button class="btn btn-icon" id="btn-sidebar-toggle" title="サイドバー切替">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <line x1="9" y1="3" x2="9" y2="21" />
+                </svg>
+            </button>
+            <button class="btn btn-icon" id="btn-theme" title="テーマ切替">
+                <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z" />
+                </svg>
+                <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    class="hidden">
+                    <circle cx="12" cy="12" r="5" />
+                    <path
+                        d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+                </svg>
+            </button>
+            <button class="btn btn-icon" id="btn-help" title="ヘルプ">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- App Layout -->
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <span class="vault-name" id="vault-name">Vault未選択</span>
+                <div class="sidebar-actions">
+                    <button id="btn-export-vault" title="Vault全体をHTMLエクスポート"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                    <button id="btn-refresh" title="更新"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="23 4 23 10 17 10" />
+                            <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" />
+                        </svg></button>
+                    <button id="btn-collapse-all" title="全て折りたたむ"><svg viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <polyline points="4 14 10 14 10 20" />
+                            <polyline points="20 10 14 10 14 4" />
+                            <line x1="14" y1="10" x2="21" y2="3" />
+                            <line x1="3" y1="21" x2="10" y2="14" />
+                        </svg></button>
+                </div>
+            </div>
+            <div class="file-tree" id="file-tree"></div>
+            <div class="resize-handle" id="resize-handle"></div>
+        </div>
+
+        <!-- Main -->
+        <div class="main-area" id="main-area">
+            <!-- Drop overlay -->
+            <div id="drop-overlay" class="drop-overlay">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="40" height="40">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span class="drop-overlay-text">ここにドロップして開く</span>
+            </div>
+            <!-- Welcome -->
+            <div class="welcome" id="welcome-screen">
+                <div class="welcome-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                </div>
+                <h2>Omni Editor</h2>
+                <p>Vaultフォルダを開いてマークダウンの閲覧・編集を始めましょう</p>
+                <p><span class="kbd">Ctrl+Shift+O</span> でVaultを開く &nbsp; <span class="kbd">Ctrl+P</span> で検索</p>
+                <div class="welcome-drop-hint">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    MDファイル・フォルダをドロップして開く
+                </div>
+                <div id="vault-history" class="vault-history" style="display:none"></div>
+            </div>
+            <!-- Editor content (hidden until file is opened) -->
+            <div id="editor-wrapper" class="hidden"
+                style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden;">
+                <div class="mode-tabs">
+                    <button class="mode-tab active" data-mode="edit">Edit</button>
+                    <button class="mode-tab" data-mode="preview">Preview</button>
+                    <button class="mode-tab" data-mode="split">Split</button>
+                </div>
+                <div class="editor-area active" id="editor-area" translate="no" class="notranslate">
+                    <textarea id="editor-textarea" spellcheck="false" placeholder="Markdownを入力..."></textarea>
+                </div>
+                <div class="preview-area" id="preview-area">
+                    <article class="markdown-body" id="markdown-body"></article>
+                </div>
+                <div class="split-container" id="split-container">
+                    <div class="split-editor" translate="no" class="notranslate">
+                        <textarea id="split-textarea" spellcheck="false" placeholder="Markdownを入力..."></textarea>
+                    </div>
+                    <div class="split-preview">
+                        <article class="markdown-body" id="split-preview-body"></article>
+                    </div>
+                </div>
+                <div class="viewer-area" id="viewer-area"></div>
+            </div>
+        </div>
+        <!-- Outline Panel -->
+        <div class="outline-panel" id="outline-panel">
+            <div class="outline-header">Outline</div>
+            <div class="outline-list" id="outline-list"></div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="statusbar">
+        <div class="statusbar-left">
+            <span id="status-info">Ready</span>
+        </div>
+        <div class="statusbar-right">
+            <span class="vim-badge" id="vim-badge">VIM</span>
+            <label class="autosave-toggle" id="autosave-toggle">
+                <input type="checkbox" id="autosave-checkbox" checked> Auto-save
+            </label>
+            <label class="autosave-toggle" id="restore-toggle">
+                <input type="checkbox" id="restore-checkbox" checked> Auto-restore
+            </label>
+            <span id="status-lines">-</span>
+            <span id="status-words">-</span>
+        </div>
+    </div>
+
+    <!-- Search Modal -->
+    <div class="search-overlay" id="search-overlay">
+        <div class="search-box">
+            <input type="text" class="search-input" id="search-input" placeholder="ファイル名で検索...">
+            <div class="search-results" id="search-results"></div>
+        </div>
+    </div>
+
+    <!-- New File Dialog -->
+    <div class="dialog-overlay" id="dialog-new-file">
+        <div class="dialog-box">
+            <h3>新規ファイル</h3>
+            <input type="text" id="new-file-name" placeholder="filename.md">
+            <div class="dialog-actions">
+                <button class="btn" id="btn-cancel-new">キャンセル</button>
+                <button class="btn btn-accent" id="btn-create-new">作成</button>
+            </div>
+        </div>
+    </div>
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Full-text Search Modal -->
+    <div class="grep-overlay" id="grep-overlay">
+        <div class="grep-box">
+            <input type="text" class="grep-input" id="grep-input" placeholder="Vault内を全文検索 (Ctrl+Shift+F)...">
+            <div class="grep-results" id="grep-results"></div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="convert-overlay" id="help-overlay" style="z-index: 10000;">
+        <div class="convert-box">
+            <div class="convert-header">
+                <span>キーボードショートカット</span>
+            </div>
+            <div class="convert-diffs" id="help-content">
+                <div style="padding: 20px;">
+                    <div style="margin-bottom: 16px;">
+                        <strong>ファイル操作</strong>
+                        <div style="margin-top: 8px; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span>保存</span>
+                                <kbd style="background: var(--bg-secondary); padding: 2px 8px; border-radius: 4px;">Ctrl+S</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Vaultを開く</span>
+                                <kbd style="background: var(--bg-secondary); padding: 2px 8px; border-radius: 4px;">Ctrl+Shift+O</kbd>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <strong>検索・ナビゲーション</strong>
+                        <div style="margin-top: 8px; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span>ファイル検索</span>
+                                <kbd style="background: var(--bg-secondary); padding: 2px 8px; border-radius: 4px;">Ctrl+P</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span>全文検索</span>
+                                <kbd style="background: var(--bg-secondary); padding: 2px 8px; border-radius: 4px;">Ctrl+Shift+F</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>モード切替</span>
+                                <kbd style="background: var(--bg-secondary); padding: 2px 8px; border-radius: 4px;">Ctrl+E</kbd>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <strong>編集</strong>
+                        <div style="margin-top: 8px; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span>検索と置換</span>
+                                <kbd style="background: var(--bg-secondary); padding: 2px 8px; border-radius: 4px;">Ctrl+H</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span>HTMLエクスポート</span>
+                                <kbd style="background: var(--bg-secondary); padding: 2px 8px; border-radius: 4px;">Ctrl+Shift+E</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span>印刷</span>
+                                <kbd style="background: var(--bg-secondary); padding: 2px 8px; border-radius: 4px;">Ctrl+Shift+P</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Vim モード切替</span>
+                                <kbd style="background: var(--bg-secondary); padding: 2px 8px; border-radius: 4px;">Ctrl+Alt+V</kbd>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <strong>エディタ</strong>
+                        <div style="margin-top: 8px; padding: 8px 0;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>インデント</span>
+                                <kbd style="background: var(--bg-secondary); padding: 2px 8px; border-radius: 4px;">Tab</kbd>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="convert-actions" style="justify-content: flex-end;">
+                <button class="btn" id="btn-help-close">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Find & Replace -->
+    <div class="fr-overlay" id="fr-overlay">
+        <div class="fr-box">
+            <div class="fr-header">
+                <span>Find &amp; Replace</span>
+                <button class="btn btn-icon" id="fr-close" title="閉じる (Esc)" style="padding:3px 5px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="fr-body">
+                <div class="fr-row">
+                    <input class="fr-input" id="fr-input" type="text" placeholder="検索..." spellcheck="false" autocomplete="off">
+                    <span class="fr-count" id="fr-count"></span>
+                    <button class="btn btn-icon" id="fr-prev" title="前へ (Shift+Enter)" style="padding:4px 6px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="18 15 12 9 6 15"/></svg>
+                    </button>
+                    <button class="btn btn-icon" id="fr-next" title="次へ (Enter)" style="padding:4px 6px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                </div>
+                <div class="fr-row">
+                    <input class="fr-input" id="fr-replace" type="text" placeholder="置換後..." spellcheck="false" autocomplete="off">
+                    <button class="btn" id="fr-replace-one" style="white-space:nowrap;font-size:12px;">置換</button>
+                    <button class="btn" id="fr-replace-all" style="white-space:nowrap;font-size:12px;">全置換</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Wiki Link Converter Modal -->
+    <div class="convert-overlay" id="convert-overlay">
+        <div class="convert-box">
+            <div class="convert-header">
+                <span>Wiki Link → 標準リンク変換</span>
+                <select id="convert-scope">
+                    <option value="current">現在のファイル</option>
+                    <option value="vault">Vault全体</option>
+                </select>
+            </div>
+            <div class="convert-diffs" id="convert-diffs"></div>
+            <div class="convert-actions">
+                <button class="btn" id="btn-convert-cancel">キャンセル</button>
+                <button class="btn btn-accent" id="btn-convert-apply">変換を適用</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (async function () {
+            // ── CodeMirror state ──
+            let cmEditor = null;
+            let cmModules = null;
+            let vimEnabled = localStorage.getItem('md-editor-vim') === 'true';
+            let themeComp = null;
+            let vimComp = null;
+            let cmSyncingFromSplit = false;
+
+            // ── App State ──
+            let vaultHandle = null;
+            let fileTree = [];
+            let allFiles = [];
+            let currentFileHandle = null;
+            let currentFilePath = '';
+            let originalContent = '';
+            let isUnsaved = false;
+            let currentMode = 'edit';
+            let searchSelectedIdx = 0;
+            let autoRestoreEnabled = localStorage.getItem('md-editor-auto-restore') !== 'false';
+
+            // Find & Replace state
+            let frMatches = [];
+            let frCurrentIdx = -1;
+
+            // ── DOM refs ──
+            const $ = id => document.getElementById(id);
+            const sidebar = $('sidebar');
+            const fileTreeEl = $('file-tree');
+            const welcomeScreen = $('welcome-screen');
+            const editorWrapper = $('editor-wrapper');
+            const editorArea = $('editor-area');
+            const previewArea = $('preview-area');
+            const editorTextarea = $('editor-textarea');
+            const markdownBody = $('markdown-body');
+            const vaultNameEl = $('vault-name');
+            const fileTitleEl = $('file-title');
+            const filePathEl = $('file-path-display');
+            const unsavedDot = $('unsaved-dot');
+            const statusInfo = $('status-info');
+            const statusLines = $('status-lines');
+            const statusWords = $('status-words');
+            const searchOverlay = $('search-overlay');
+            const searchInput = $('search-input');
+            const searchResults = $('search-results');
+            const dialogNewFile = $('dialog-new-file');
+            const newFileName = $('new-file-name');
+            const toastEl = $('toast');
+            const hljsThemeLink = $('hljs-theme');
+            const iconMoon = $('icon-moon');
+            const iconSun = $('icon-sun');
+            const helpOverlay = $('help-overlay');
+            const splitContainer = $('split-container');
+            const splitTextarea = $('split-textarea');
+            const splitPreviewBody = $('split-preview-body');
+            const autosaveCheckbox = $('autosave-checkbox');
+            const autosaveToggle = $('autosave-toggle');
+            const restoreCheckbox = $('restore-checkbox');
+            const restoreToggle = $('restore-toggle');
+            const outlinePanel = $('outline-panel');
+            const outlineList = $('outline-list');
+            const viewerArea = $('viewer-area');
+            const dropOverlay = $('drop-overlay');
+            const vaultHistoryEl = $('vault-history');
+            const vimBadge = $('vim-badge');
+            let autoSaveEnabled = localStorage.getItem('md-editor-autosave') !== 'false';
+            autosaveCheckbox.checked = autoSaveEnabled;
+            restoreCheckbox.checked = autoRestoreEnabled;
+            let autoSaveTimer = null;
+
+            // ── Editor content helpers ──
+            function getEditorContent() {
+                return cmEditor ? cmEditor.state.doc.toString() : editorTextarea.value;
+            }
+            function setEditorContent(text) {
+                editorTextarea.value = text;
+                if (cmEditor) {
+                    cmEditor.dispatch({ changes: { from: 0, to: cmEditor.state.doc.length, insert: text } });
+                }
+            }
+            function focusEditor() {
+                if (cmEditor) cmEditor.focus();
+                else editorTextarea.focus();
+            }
+            function enableFileButtons() {
+                $('btn-findreplace').disabled = false;
+                $('btn-export-html').disabled = false;
+                $('btn-print').disabled = false;
+            }
+
+            // ── Theme ──
+            const savedTheme = localStorage.getItem('md-editor-theme') || 'dark';
+            if (savedTheme === 'light') applyLight();
+
+            $('btn-theme').addEventListener('click', () => {
+                document.body.classList.toggle('light-mode');
+                const isLight = document.body.classList.contains('light-mode');
+                iconMoon.classList.toggle('hidden', isLight);
+                iconSun.classList.toggle('hidden', !isLight);
+                hljsThemeLink.href = isLight
+                    ? 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css'
+                    : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css';
+                localStorage.setItem('md-editor-theme', isLight ? 'light' : 'dark');
+                if (cmEditor && themeComp && cmModules) {
+                    cmEditor.dispatch({ effects: themeComp.reconfigure(isLight ? [] : cmModules.oneDark) });
+                }
+            });
+            $('btn-help').addEventListener('click', () => helpOverlay.classList.add('active'));
+            $('btn-help-close').addEventListener('click', () => helpOverlay.classList.remove('active'));
+            helpOverlay.addEventListener('click', (e) => { if (e.target === helpOverlay) helpOverlay.classList.remove('active'); });
+
+            function applyLight() {
+                document.body.classList.add('light-mode');
+                iconMoon.classList.add('hidden');
+                iconSun.classList.remove('hidden');
+                hljsThemeLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+            }
+
+            // ── Toast ──
+            function toast(msg, duration = 2000) {
+                toastEl.textContent = msg;
+                toastEl.classList.add('show');
+                setTimeout(() => toastEl.classList.remove('show'), duration);
+            }
+
+            // ── Sidebar toggle ──
+            $('btn-sidebar-toggle').addEventListener('click', () => {
+                sidebar.classList.toggle('collapsed');
+                saveState();
+            });
+
+            // ── IndexedDB for vault handle persistence ──
+            const DB_NAME = 'MDEditorDB';
+            const STORE_NAME = 'vaults';
+            const VAULT_KEY = 'lastVault';
+            const VH_PREFIX = 'vh:';
+
+            async function initDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(DB_NAME, 1);
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        if (!db.objectStoreNames.contains(STORE_NAME)) {
+                            db.createObjectStore(STORE_NAME);
+                        }
+                    };
+                });
+            }
+
+            async function saveVaultHandle(handle) {
+                try {
+                    const db = await initDB();
+                    return new Promise((resolve, reject) => {
+                        const transaction = db.transaction([STORE_NAME], 'readwrite');
+                        const store = transaction.objectStore(STORE_NAME);
+                        const request = store.put(handle, VAULT_KEY);
+                        request.onerror = () => reject(request.error);
+                        request.onsuccess = () => resolve();
+                    });
+                } catch (e) {
+                    console.error('Failed to save vault handle:', e);
+                }
+            }
+
+            async function loadVaultHandle() {
+                try {
+                    const db = await initDB();
+                    return new Promise((resolve, reject) => {
+                        const transaction = db.transaction([STORE_NAME], 'readonly');
+                        const store = transaction.objectStore(STORE_NAME);
+                        const request = store.get(VAULT_KEY);
+                        request.onerror = () => reject(request.error);
+                        request.onsuccess = () => resolve(request.result);
+                    });
+                } catch (e) {
+                    console.error('Failed to load vault handle:', e);
+                    return null;
+                }
+            }
+
+            async function clearVaultHandle() {
+                try {
+                    const db = await initDB();
+                    return new Promise((resolve, reject) => {
+                        const transaction = db.transaction([STORE_NAME], 'readwrite');
+                        const store = transaction.objectStore(STORE_NAME);
+                        const request = store.delete(VAULT_KEY);
+                        request.onerror = () => reject(request.error);
+                        request.onsuccess = () => resolve();
+                    });
+                } catch (e) {
+                    console.error('Failed to clear vault handle:', e);
+                }
+            }
+
+            // ── Vault History ──
+            async function addToVaultHistory(handle) {
+                try {
+                    const db = await initDB();
+                    await new Promise((resolve, reject) => {
+                        const tx = db.transaction([STORE_NAME], 'readwrite');
+                        const store = tx.objectStore(STORE_NAME);
+                        const req = store.put(handle, VH_PREFIX + handle.name);
+                        req.onerror = () => reject(req.error);
+                        req.onsuccess = () => resolve();
+                    });
+                    let names = JSON.parse(localStorage.getItem('md-editor-vault-names') || '[]');
+                    names = names.filter(n => n !== handle.name);
+                    names.unshift(handle.name);
+                    if (names.length > 5) names = names.slice(0, 5);
+                    localStorage.setItem('md-editor-vault-names', JSON.stringify(names));
+                } catch (e) { console.error('Failed to save vault history:', e); }
+            }
+
+            async function loadVaultFromHistory(name) {
+                try {
+                    const db = await initDB();
+                    return new Promise((resolve, reject) => {
+                        const tx = db.transaction([STORE_NAME], 'readonly');
+                        const store = tx.objectStore(STORE_NAME);
+                        const req = store.get(VH_PREFIX + name);
+                        req.onerror = () => reject(req.error);
+                        req.onsuccess = () => resolve(req.result);
+                    });
+                } catch (e) { return null; }
+            }
+
+            function renderVaultHistory() {
+                const names = JSON.parse(localStorage.getItem('md-editor-vault-names') || '[]');
+                if (names.length === 0) { vaultHistoryEl.style.display = 'none'; return; }
+                vaultHistoryEl.style.display = '';
+                vaultHistoryEl.innerHTML = '<div class="vault-history-title">最近使ったVault</div>' +
+                    names.map(name => `<div class="vault-history-item" data-name="${escapeHtml(name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>${escapeHtml(name)}</div>`).join('');
+                vaultHistoryEl.querySelectorAll('.vault-history-item').forEach(item => {
+                    item.addEventListener('click', async () => {
+                        const name = item.dataset.name;
+                        try {
+                            const handle = await loadVaultFromHistory(name);
+                            if (!handle) { toast('Vaultが見つかりません'); return; }
+                            const permission = await handle.requestPermission({ mode: 'readwrite' });
+                            if (permission !== 'granted') return;
+                            await activateVault(handle);
+                            toast(`${handle.name} を開きました`);
+                            await restoreLastFile();
+                        } catch (e) {
+                            if (e.name !== 'AbortError') toast('Vaultを開けませんでした');
+                        }
+                    });
+                });
+            }
+
+            async function activateVault(handle) {
+                vaultHandle = handle;
+                vaultNameEl.textContent = vaultHandle.name;
+                $('btn-new-file').disabled = false;
+                $('btn-daily').disabled = false;
+                $('btn-convert').disabled = false;
+                await refreshTree();
+                statusInfo.textContent = `Vault: ${vaultHandle.name}`;
+                await saveVaultHandle(vaultHandle);
+                await addToVaultHistory(vaultHandle);
+                renderVaultHistory();
+            }
+
+            // ── State persistence ──
+            function saveState() {
+                // Get expanded directories
+                const expandedDirs = [];
+                fileTreeEl.querySelectorAll('.tree-children.open').forEach(el => {
+                    const parentItem = el.previousElementSibling;
+                    if (parentItem && parentItem.classList.contains('tree-item')) {
+                        const nameEl = parentItem.querySelector('.name');
+                        if (nameEl) {
+                            expandedDirs.push(nameEl.textContent);
+                        }
+                    }
+                });
+
+                const state = {
+                    sidebarCollapsed: sidebar.classList.contains('collapsed'),
+                    sidebarWidth: sidebar.style.width || '280px',
+                    currentMode: currentMode,
+                    expandedDirs: expandedDirs,
+                };
+                localStorage.setItem('md-editor-state', JSON.stringify(state));
+            }
+
+            function loadState() {
+                try {
+                    const saved = localStorage.getItem('md-editor-state');
+                    if (!saved) return;
+
+                    const state = JSON.parse(saved);
+
+                    // Restore sidebar state
+                    if (state.sidebarCollapsed) {
+                        sidebar.classList.add('collapsed');
+                    } else {
+                        sidebar.classList.remove('collapsed');
+                    }
+
+                    // Restore sidebar width
+                    if (state.sidebarWidth) {
+                        sidebar.style.width = state.sidebarWidth;
+                    }
+
+                    // Restore current mode
+                    if (state.currentMode && ['edit', 'preview', 'split'].includes(state.currentMode)) {
+                        currentMode = state.currentMode;
+                    }
+
+                    // Restore expanded directories after tree is rendered
+                    if (state.expandedDirs && Array.isArray(state.expandedDirs)) {
+                        setTimeout(() => {
+                            state.expandedDirs.forEach(dirName => {
+                                const items = fileTreeEl.querySelectorAll('.tree-item.dir');
+                                items.forEach(item => {
+                                    const nameEl = item.querySelector('.name');
+                                    if (nameEl && nameEl.textContent === dirName) {
+                                        const chevron = item.querySelector('.chevron');
+                                        const childContainer = item.nextElementSibling;
+                                        if (childContainer && childContainer.classList.contains('tree-children')) {
+                                            childContainer.classList.add('open');
+                                            if (chevron) {
+                                                chevron.style.transform = 'rotate(90deg)';
+                                            }
+                                        }
+                                    }
+                                });
+                            });
+                        }, 100);
+                    }
+                } catch (e) {
+                    console.error('Failed to load state:', e);
+                }
+            }
+
+            // ── Last file persistence ──
+            function saveLastFile(filePath) {
+                localStorage.setItem('md-editor-last-file', filePath);
+            }
+
+            function getLastFile() {
+                return localStorage.getItem('md-editor-last-file');
+            }
+
+            async function restoreLastFile() {
+                const lastFilePath = getLastFile();
+                if (!lastFilePath || !vaultHandle) return;
+
+                try {
+                    // Find the file in the tree
+                    const node = findNodeByPath(fileTree, lastFilePath);
+                    if (node) {
+                        await openFile(node);
+                        statusInfo.textContent = `${lastFilePath} (restored)`;
+                    }
+                } catch (e) {
+                    console.error('Failed to restore last file:', e);
+                }
+            }
+
+            // Load state on startup
+            loadState();
+
+            // ── Sidebar resize ──
+            const resizeHandle = $('resize-handle');
+            let isResizing = false;
+            resizeHandle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                resizeHandle.classList.add('active');
+                document.addEventListener('mousemove', onResize);
+                document.addEventListener('mouseup', stopResize);
+                e.preventDefault();
+            });
+            function onResize(e) {
+                if (!isResizing) return;
+                const w = Math.max(180, Math.min(500, e.clientX));
+                sidebar.style.width = w + 'px';
+            }
+            function stopResize() {
+                isResizing = false;
+                resizeHandle.classList.remove('active');
+                document.removeEventListener('mousemove', onResize);
+                document.removeEventListener('mouseup', stopResize);
+                saveState();  // Save state after resize
+            }
+
+            // ── Vault open ──
+            $('btn-vault').addEventListener('click', openVault);
+
+            async function openVault() {
+                try {
+                    const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                    await activateVault(handle);
+                    toast('Vaultを開きました');
+                } catch (e) {
+                    if (e.name !== 'AbortError') console.error(e);
+                }
+            }
+
+            // ── Auto-restore vault on startup ──
+            async function tryRestoreVault() {
+                if (!autoRestoreEnabled) return;
+                try {
+                    const savedHandle = await loadVaultHandle();
+                    if (!savedHandle) return;
+                    const permission = await savedHandle.requestPermission({ mode: 'readwrite' });
+                    if (permission !== 'granted') return;
+                    vaultHandle = savedHandle;
+                    vaultNameEl.textContent = vaultHandle.name;
+                    $('btn-new-file').disabled = false;
+                    $('btn-daily').disabled = false;
+                    $('btn-convert').disabled = false;
+                    await refreshTree();
+                    statusInfo.textContent = `Vault: ${vaultHandle.name} (restored)`;
+                    toast('Vaultを自動再開しました');
+                    await restoreLastFile();
+                } catch (e) {
+                    console.error('Failed to restore vault:', e);
+                    if (e.name === 'NotFoundError') await clearVaultHandle();
+                }
+            }
+
+            setTimeout(() => tryRestoreVault(), 100);
+
+            // ── Build file tree ──
+            async function buildTree(dirHandle, parentPath = '') {
+                const entries = [];
+                for await (const [name, handle] of dirHandle.entries()) {
+                    if (name.startsWith('.')) continue; // skip hidden
+                    const path = parentPath ? `${parentPath}/${name}` : name;
+                    if (handle.kind === 'directory') {
+                        const children = await buildTree(handle, path);
+                        entries.push({ name, kind: 'directory', handle, path, children });
+                    } else {
+                        entries.push({ name, kind: 'file', handle, path, children: null });
+                    }
+                }
+                entries.sort((a, b) => {
+                    if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1;
+                    return a.name.localeCompare(b.name);
+                });
+                return entries;
+            }
+
+            async function refreshTree() {
+                if (!vaultHandle) return;
+                fileTree = await buildTree(vaultHandle);
+                allFiles = [];
+                flattenFiles(fileTree);
+                renderTree();
+            }
+
+            function flattenFiles(nodes) {
+                for (const node of nodes) {
+                    if (node.kind === 'file') allFiles.push(node);
+                    if (node.children) flattenFiles(node.children);
+                }
+            }
+
+            $('btn-refresh').addEventListener('click', () => refreshTree());
+            $('btn-collapse-all').addEventListener('click', () => {
+                fileTreeEl.querySelectorAll('.tree-children').forEach(el => el.classList.remove('open'));
+                fileTreeEl.querySelectorAll('.tree-item.dir .chevron').forEach(el => el.style.transform = '');
+                saveState();  // Save state when collapsing all
+            });
+
+            // ── Render file tree ──
+            function renderTree() {
+                fileTreeEl.innerHTML = '';
+                renderNodes(fileTree, fileTreeEl, 0);
+            }
+
+            function renderNodes(nodes, parent, depth) {
+                for (const node of nodes) {
+                    const item = document.createElement('div');
+                    item.className = 'tree-item' + (node.kind === 'directory' ? ' dir' : '');
+                    if (node.path === currentFilePath) item.classList.add('active');
+
+                    // indent
+                    for (let i = 0; i < depth; i++) {
+                        const indent = document.createElement('span');
+                        indent.className = 'tree-indent';
+                        item.appendChild(indent);
+                    }
+
+                    if (node.kind === 'directory') {
+                        // chevron
+                        const chevron = document.createElement('span');
+                        chevron.className = 'chevron';
+                        chevron.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
+                        chevron.style.transition = 'transform 0.2s';
+                        item.appendChild(chevron);
+
+                        // folder icon
+                        const icon = document.createElement('span');
+                        icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>';
+                        item.appendChild(icon);
+
+                        const nameSpan = document.createElement('span');
+                        nameSpan.className = 'name';
+                        nameSpan.textContent = node.name;
+                        item.appendChild(nameSpan);
+
+                        parent.appendChild(item);
+
+                        const childContainer = document.createElement('div');
+                        childContainer.className = 'tree-children';
+                        parent.appendChild(childContainer);
+
+                        item.addEventListener('click', () => {
+                            childContainer.classList.toggle('open');
+                            chevron.style.transform = childContainer.classList.contains('open') ? 'rotate(90deg)' : '';
+                            saveState();  // Save state when tree is expanded/collapsed
+                        });
+
+                        renderNodes(node.children, childContainer, depth + 1);
+                    } else {
+                        // file icon
+                        const icon = document.createElement('span');
+                        const ext = node.name.split('.').pop().toLowerCase();
+                        const isMd = ['md', 'markdown'].includes(ext);
+                        const isImg = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'].includes(ext);
+                        const isVid = ['mp4', 'webm', 'ogg', 'mov'].includes(ext);
+                        const isAud = ['mp3', 'wav', 'aac', 'flac'].includes(ext);
+                        if (isImg) {
+                            icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+                            icon.querySelector('svg').style.color = 'var(--green)';
+                        } else if (isVid) {
+                            icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>';
+                            icon.querySelector('svg').style.color = 'var(--accent)';
+                        } else if (isAud) {
+                            icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+                            icon.querySelector('svg').style.color = 'var(--orange)';
+                        } else if (isMd) {
+                            icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+                        } else {
+                            icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+                        }
+                        item.appendChild(icon);
+
+                        const nameSpan = document.createElement('span');
+                        nameSpan.className = 'name';
+                        nameSpan.textContent = node.name;
+                        item.appendChild(nameSpan);
+
+                        parent.appendChild(item);
+
+                        item.addEventListener('click', () => openFile(node));
+                    }
+                }
+            }
+
+            // ── File type helpers ──
+            const IMG_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
+            const VIDEO_EXTS = ['mp4', 'webm', 'ogg', 'mov'];
+            const AUDIO_EXTS = ['mp3', 'wav', 'ogg', 'aac', 'flac'];
+            const TEXT_EXTS = ['md', 'markdown', 'txt', 'json', 'js', 'ts', 'css', 'html', 'htm', 'xml', 'yaml', 'yml', 'toml', 'ini', 'cfg', 'conf', 'sh', 'bat', 'ps1', 'py', 'rb', 'go', 'rs', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 'php', 'sql', 'log', 'env', 'gitignore', 'dockerignore', 'makefile', 'csv'];
+            function getFileExt(name) { return (name.split('.').pop() || '').toLowerCase(); }
+            function isImage(name) { return IMG_EXTS.includes(getFileExt(name)); }
+            function isVideo(name) { return VIDEO_EXTS.includes(getFileExt(name)); }
+            function isAudio(name) { return AUDIO_EXTS.includes(getFileExt(name)); }
+            function isMarkdown(name) { return ['md', 'markdown'].includes(getFileExt(name)); }
+            function isTextLikely(name) {
+                if (TEXT_EXTS.includes(getFileExt(name))) return true;
+                if (name.indexOf('.') === -1) return true; // extensionless = probably text
+                return false;
+            }
+            function formatSize(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            }
+
+            // ── Open / Read file ──
+            async function openFile(node) {
+                if (isUnsaved && !confirm('未保存の変更があります。破棄しますか？')) return;
+                try {
+                    const file = await node.handle.getFile();
+                    currentFileHandle = node.handle;
+                    currentFilePath = node.path;
+                    isUnsaved = false;
+                    saveLastFile(node.path);  // Save last opened file
+
+                    // update UI header
+                    fileTitleEl.textContent = node.name;
+                    filePathEl.textContent = node.path;
+                    unsavedDot.classList.remove('visible');
+                    welcomeScreen.style.display = 'none';
+                    editorWrapper.classList.remove('hidden');
+                    editorWrapper.style.display = 'flex';
+                    statusInfo.textContent = node.path;
+
+                    // reset all content areas
+                    editorArea.classList.remove('active');
+                    previewArea.classList.remove('active');
+                    viewerArea.classList.remove('active');
+                    viewerArea.innerHTML = '';
+                    document.querySelectorAll('.mode-tab').forEach(t => t.style.display = '');
+
+                    if (isImage(node.name)) {
+                        const url = URL.createObjectURL(file);
+                        viewerArea.innerHTML = `<img src="${url}" alt="${escapeHtml(node.name)}">`;
+                        viewerArea.classList.add('active');
+                        document.querySelectorAll('.mode-tab').forEach(t => t.style.display = 'none');
+                        originalContent = '';
+                        setEditorContent('');
+                        currentMode = 'viewer';
+                        statusLines.textContent = formatSize(file.size || 0);
+                        statusWords.textContent = getFileExt(node.name).toUpperCase();
+                    } else if (isVideo(node.name)) {
+                        const url = URL.createObjectURL(file);
+                        viewerArea.innerHTML = `<video src="${url}" controls style="max-width:100%;max-height:100%;border-radius:var(--radius);"></video>`;
+                        viewerArea.classList.add('active');
+                        document.querySelectorAll('.mode-tab').forEach(t => t.style.display = 'none');
+                        originalContent = '';
+                        setEditorContent('');
+                        currentMode = 'viewer';
+                        statusLines.textContent = formatSize(file.size || 0);
+                        statusWords.textContent = getFileExt(node.name).toUpperCase();
+                    } else if (isAudio(node.name)) {
+                        const url = URL.createObjectURL(file);
+                        viewerArea.innerHTML = `<div style="text-align:center;padding:48px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:64px;height:64px;color:var(--orange);margin-bottom:24px;"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><h3>${escapeHtml(node.name)}</h3><audio src="${url}" controls style="margin-top:24px;width:100%;min-width:300px;"></audio></div>`;
+                        viewerArea.classList.add('active');
+                        document.querySelectorAll('.mode-tab').forEach(t => t.style.display = 'none');
+                        originalContent = '';
+                        setEditorContent('');
+                        currentMode = 'viewer';
+                        statusLines.textContent = formatSize(file.size || 0);
+                        statusWords.textContent = getFileExt(node.name).toUpperCase();
+                    } else if (['pdf', 'html', 'htm'].includes(getFileExt(node.name))) {
+                        const url = URL.createObjectURL(file);
+                        viewerArea.innerHTML = `<iframe src="${url}" style="width:100%;height:100%;border:none;border-radius:var(--radius);"></iframe>`;
+                        viewerArea.classList.add('active');
+                        document.querySelectorAll('.mode-tab').forEach(t => t.style.display = 'none');
+                        originalContent = '';
+                        setEditorContent('');
+                        currentMode = 'viewer';
+                        statusLines.textContent = formatSize(file.size);
+                        statusWords.textContent = getFileExt(node.name).toUpperCase();
+                    } else if (isTextLikely(node.name) || isMarkdown(node.name)) {
+                        const text = await file.text();
+                        originalContent = text;
+                        setEditorContent(text);
+                        if (isMarkdown(node.name)) updatePreview();
+                        const savedMode = currentMode === 'viewer' ? 'edit' : currentMode;
+                        setMode(savedMode);
+                        updateStats();
+                        enableFileButtons();
+                    } else {
+                        viewerArea.innerHTML = `
+                            <div class="file-info-card">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                <h3>${escapeHtml(node.name)}</h3>
+                                <p>${formatSize(file.size)} &mdash; ${getFileExt(node.name).toUpperCase() || 'File'}</p>
+                                <p style="margin-top:8px;color:var(--text-secondary)">このファイル形式のプレビューには対応していません</p>
+                            </div>`;
+                        viewerArea.classList.add('active');
+                        document.querySelectorAll('.mode-tab').forEach(t => t.style.display = 'none');
+                        originalContent = '';
+                        setEditorContent('');
+                        currentMode = 'viewer';
+                        statusLines.textContent = formatSize(file.size);
+                        statusWords.textContent = getFileExt(node.name).toUpperCase() || 'BIN';
+                    }
+
+                    // highlight active in tree
+                    fileTreeEl.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
+                    fileTreeEl.querySelectorAll('.tree-item').forEach(el => {
+                        const nameEl = el.querySelector('.name');
+                        if (nameEl && nameEl.textContent === node.name) el.classList.add('active');
+                    });
+                } catch (e) {
+                    console.error('Failed to open file:', e);
+                    toast('ファイルを開けませんでした');
+                }
+            }
+
+            // ── Editor events ──
+            function onEditorInput() {
+                const changed = editorTextarea.value !== originalContent;
+                if (changed !== isUnsaved) {
+                    isUnsaved = changed;
+                    unsavedDot.classList.toggle('visible', isUnsaved);
+                    document.title = (isUnsaved ? '● ' : '') + 'Omni Editor';
+                }
+                updateStats();
+                if (currentMode === 'split') updateSplitPreview();
+                scheduleAutoSave();
+            }
+            editorTextarea.addEventListener('input', onEditorInput);
+            splitTextarea.addEventListener('input', () => {
+                const text = splitTextarea.value;
+                editorTextarea.value = text;
+                if (cmEditor) {
+                    cmSyncingFromSplit = true;
+                    cmEditor.dispatch({ changes: { from: 0, to: cmEditor.state.doc.length, insert: text } });
+                    cmSyncingFromSplit = false;
+                }
+                onEditorInput();
+            });
+
+            // ── Auto-save ──
+            autosaveCheckbox.addEventListener('change', () => {
+                autoSaveEnabled = autosaveCheckbox.checked;
+                localStorage.setItem('md-editor-autosave', autoSaveEnabled);
+            });
+            restoreCheckbox.addEventListener('change', () => {
+                autoRestoreEnabled = restoreCheckbox.checked;
+                localStorage.setItem('md-editor-auto-restore', autoRestoreEnabled);
+            });
+            function scheduleAutoSave() {
+                if (!autoSaveEnabled || !currentFileHandle || !isUnsaved) return;
+                clearTimeout(autoSaveTimer);
+                autoSaveTimer = setTimeout(async () => {
+                    if (!isUnsaved || !currentFileHandle) return;
+                    try {
+                        const content = getEditorContent();
+                        const writable = await currentFileHandle.createWritable();
+                        await writable.write(content);
+                        await writable.close();
+                        originalContent = content;
+                        isUnsaved = false;
+                        unsavedDot.classList.remove('visible');
+                        document.title = 'Omni Editor';
+                        autosaveToggle.classList.add('saved');
+                        statusInfo.textContent = 'Auto-saved ✓';
+                        setTimeout(() => {
+                            autosaveToggle.classList.remove('saved');
+                            if (currentFilePath) statusInfo.textContent = currentFilePath;
+                        }, 2000);
+                    } catch (e) { console.error('Auto-save failed:', e); }
+                }, 3000);
+            }
+
+            function updateStats() {
+                const text = editorTextarea.value;
+                const lines = text.split('\n').length;
+                const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+                statusLines.textContent = `${lines} lines`;
+                statusWords.textContent = `${words} words`;
+            }
+
+            // ── Mode tabs ──
+            document.querySelectorAll('.mode-tab').forEach(tab => {
+                tab.addEventListener('click', () => setMode(tab.dataset.mode));
+            });
+
+            function setMode(mode) {
+                currentMode = mode;
+                saveState();
+                document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+                editorArea.classList.toggle('active', mode === 'edit');
+                previewArea.classList.toggle('active', mode === 'preview');
+                splitContainer.classList.toggle('active', mode === 'split');
+                viewerArea.classList.remove('active');
+                document.querySelectorAll('.mode-tab').forEach(t => t.style.display = '');
+                if (mode === 'preview') updatePreview();
+                if (mode === 'edit') focusEditor();
+                if (mode === 'split') {
+                    splitTextarea.value = getEditorContent();
+                    updateSplitPreview();
+                    splitTextarea.focus();
+                }
+            }
+
+            function csvToMarkdownTable(csv) {
+                const lines = csv.trim().split('\n');
+                if (lines.length === 0) return '';
+                
+                function parseCsvLine(line) {
+                    const result = [];
+                    let current = '';
+                    let inQuotes = false;
+                    for (let i = 0; i < line.length; i++) {
+                        const char = line[i];
+                        if (char === '"') {
+                            if (inQuotes && line[i+1] === '"') {
+                                current += '"';
+                                i++;
+                            } else {
+                                inQuotes = !inQuotes;
+                            }
+                        } else if (char === ',' && !inQuotes) {
+                            result.push(current);
+                            current = '';
+                        } else {
+                            current += char;
+                        }
+                    }
+                    result.push(current);
+                    return result;
+                }
+
+                let md = '';
+                lines.forEach((line, i) => {
+                    const cols = parseCsvLine(line);
+                    const escapedCols = cols.map(c => c.replace(/\|/g, '\\|').replace(/\n/g, '<br>'));
+                    md += '| ' + escapedCols.join(' | ') + ' |\n';
+                    if (i === 0) {
+                        md += '|' + cols.map(() => '---').join('|') + '|\n';
+                    }
+                });
+                return md;
+            }
+
+            function updateSplitPreview() {
+                let contentToParse = splitTextarea.value || getEditorContent();
+                const ext = getFileExt(currentFilePath);
+                if (ext === 'csv') {
+                    contentToParse = csvToMarkdownTable(contentToParse);
+                } else if (ext === 'json') {
+                    contentToParse = '```json\n' + contentToParse + '\n```';
+                } else if (ext === 'yml' || ext === 'yaml') {
+                    contentToParse = '```yaml\n' + contentToParse + '\n```';
+                } else if (!isMarkdown(currentFilePath) && isTextLikely(currentFilePath)) {
+                    contentToParse = '```' + (ext || 'text') + '\n' + contentToParse + '\n```';
+                }
+                
+                const fm = processFrontmatter(contentToParse);
+                let html = fm.html + marked.parse(fm.md);
+                html = processAlerts(html);
+                splitPreviewBody.innerHTML = html;
+                splitPreviewBody.querySelectorAll('pre code').forEach(block => {
+                    if (!block.classList.contains('hljs')) hljs.highlightElement(block);
+                });
+                renderMermaid(splitPreviewBody);
+                interceptLinks(splitPreviewBody);
+                resolveImages(splitPreviewBody);
+                updateOutline();
+            }
+
+            // ── Markdown rendering (from md-viewer) ──
+            const renderer = new marked.Renderer();
+            renderer.code = function ({ text, lang }) {
+                const language = lang || '';
+                const displayLang = language || 'text';
+                let highlighted;
+                try {
+                    highlighted = language && hljs.getLanguage(language)
+                        ? hljs.highlight(text, { language }).value
+                        : hljs.highlightAuto(text).value;
+                } catch (e) { highlighted = escapeHtml(text); }
+
+                const id = 'code-' + Math.random().toString(36).substring(2, 9);
+                return `<div translate="no" class="notranslate"><pre><div class="code-header"><span>${escapeHtml(displayLang)}</span><button class="copy-btn" onclick="window._copyCode('${id}', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy</button></div><code id="${id}" class="hljs language-${escapeHtml(language)}">${highlighted}</code></pre></div>`;
+            };
+            renderer.codespan = function ({ text }) {
+                return `<code translate="no" class="notranslate">${text}</code>`;
+            };
+            marked.use(markedKatex({ throwOnError: false }));
+            marked.setOptions({ renderer, gfm: true, breaks: false });
+
+            function processAlerts(html) {
+                const types = {
+                    'NOTE': { cls: 'alert-note', icon: 'ℹ️', label: 'Note' },
+                    'TIP': { cls: 'alert-tip', icon: '💡', label: 'Tip' },
+                    'IMPORTANT': { cls: 'alert-important', icon: '❗', label: 'Important' },
+                    'WARNING': { cls: 'alert-warning', icon: '⚠️', label: 'Warning' },
+                    'CAUTION': { cls: 'alert-caution', icon: '🔴', label: 'Caution' },
+                };
+                for (const [key, val] of Object.entries(types)) {
+                    const re1 = new RegExp(`<blockquote>\\s*<p>\\[!${key}\\]\\s*<br>\\s*`, 'gi');
+                    const re2 = new RegExp(`<blockquote>\\s*<p>\\[!${key}\\]\\s*\\n`, 'gi');
+                    const repl = `<div class="alert ${val.cls}"><div class="alert-title">${val.icon} ${val.label}</div><p>`;
+                    html = html.replace(re1, repl).replace(re2, repl);
+                }
+                html = html.replace(/<\/p>\s*<\/blockquote>/g, (match, offset) => {
+                    const before = html.substring(Math.max(0, offset - 500), offset);
+                    return before.includes('class="alert ') ? '</p></div>' : match;
+                });
+                return html;
+            }
+
+            function attachCheckboxListeners(container) {
+                container.querySelectorAll('input[type="checkbox"]').forEach((cb, idx) => {
+                    cb.removeAttribute('disabled');
+                    cb.style.cursor = 'pointer';
+                    cb.addEventListener('change', async (e) => {
+                        const isChecked = e.target.checked;
+                        const content = getEditorContent();
+                        const lines = content.split('\n');
+                        let cbCount = 0;
+                        for (let i = 0; i < lines.length; i++) {
+                            // Match markdown list items with checkboxes
+                            if (/^\s*(?:[-*+]|\d+\.)\s+\[[ xX]\]\s/.test(lines[i])) {
+                                if (cbCount === idx) {
+                                    lines[i] = lines[i].replace(/^(\s*(?:[-*+]|\d+\.)\s+\[)[ xX](\]\s)/, `$1${isChecked ? 'x' : ' '}$2`);
+                                    const newContent = lines.join('\n');
+                                    setEditorContent(newContent);
+                                    originalContent = newContent; // Mark as saved immediately or just let auto-save handle it?
+                                    isUnsaved = true;
+                                    unsavedDot.classList.add('visible');
+                                    scheduleAutoSave();
+                                    break;
+                                }
+                                cbCount++;
+                            }
+                        }
+                    });
+                });
+            }
+
+            function processFrontmatter(text) {
+                if (!text.startsWith('---')) return { html: '', md: text };
+                const endIdx = text.indexOf('\n---', 3);
+                if (endIdx === -1) return { html: '', md: text };
+                const yamlText = text.substring(3, endIdx).trim();
+                let html = '';
+                try {
+                    if (window.jsyaml) {
+                        const data = jsyaml.load(yamlText);
+                        if (data && typeof data === 'object') {
+                            html = '<div class="frontmatter-card"><h4>Metadata</h4><table>';
+                            for (const [k, v] of Object.entries(data)) {
+                                html += `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(String(v))}</td></tr>`;
+                            }
+                            html += '</table></div>';
+                        }
+                    }
+                } catch (e) { console.error('YAML parse error', e); }
+                return { html, md: text.substring(endIdx + 4) };
+            }
+
+            function updatePreview() {
+                const fm = processFrontmatter(getEditorContent());
+                let html = fm.html + marked.parse(fm.md);
+                html = processAlerts(html);
+                markdownBody.innerHTML = html;
+                markdownBody.querySelectorAll('pre code').forEach(block => {
+                    if (!block.classList.contains('hljs')) hljs.highlightElement(block);
+                });
+                renderMermaid(markdownBody);
+                interceptLinks(markdownBody);
+                resolveImages(markdownBody);
+                attachCheckboxListeners(markdownBody);
+                updateOutline();
+            }
+
+            // ── Mermaid ──
+            mermaid.initialize({ startOnLoad: false, theme: document.body.classList.contains('light-mode') ? 'default' : 'dark' });
+            function renderMermaid(container) {
+                const blocks = container.querySelectorAll('code.language-mermaid');
+                blocks.forEach((block, i) => {
+                    const pre = block.closest('pre');
+                    const wrapper = pre?.parentElement; // .notranslate div
+                    if (!wrapper) return;
+                    const el = document.createElement('div');
+                    el.className = 'mermaid';
+                    el.textContent = block.textContent;
+                    wrapper.replaceWith(el);
+                });
+                if (blocks.length > 0) {
+                    mermaid.initialize({ startOnLoad: false, theme: document.body.classList.contains('light-mode') ? 'default' : 'dark' });
+                    mermaid.run({ nodes: container.querySelectorAll('.mermaid') });
+                }
+            }
+
+            // ── Outline Panel ──
+            $('btn-outline-toggle').addEventListener('click', () => outlinePanel.classList.toggle('open'));
+
+            function updateOutline() {
+                outlineList.innerHTML = '';
+                const text = getEditorContent();
+                const lines = text.split('\n');
+                lines.forEach((line, idx) => {
+                    const m = line.match(/^(#{1,6})\s+(.+)/);
+                    if (!m) return;
+                    const level = m[1].length;
+                    const title = m[2].replace(/#+\s*$/, '').trim();
+                    const item = document.createElement('div');
+                    item.className = `outline-item h${level}`;
+                    item.textContent = title;
+                    item.addEventListener('click', () => {
+                        // jump to line in editor
+                        if (currentMode === 'split') {
+                            jumpToLine(splitTextarea, idx);
+                        } else {
+                            setMode('edit');
+                            jumpToLine(editorTextarea, idx);
+                        }
+                    });
+                    outlineList.appendChild(item);
+                });
+            }
+
+            function jumpToLine(textarea, lineIdx) {
+                if (cmEditor && textarea === editorTextarea) {
+                    const lineNo = Math.min(lineIdx + 1, cmEditor.state.doc.lines);
+                    const line = cmEditor.state.doc.line(lineNo);
+                    cmEditor.dispatch({ selection: { anchor: line.from }, scrollIntoView: true });
+                    cmEditor.focus();
+                    return;
+                }
+                const lines = textarea.value.split('\n');
+                let pos = 0;
+                for (let i = 0; i < lineIdx && i < lines.length; i++) pos += lines[i].length + 1;
+                textarea.focus();
+                textarea.setSelectionRange(pos, pos + (lines[lineIdx] || '').length);
+                const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 24;
+                textarea.scrollTop = lineIdx * lineHeight - textarea.clientHeight / 3;
+            }
+
+            $('btn-outline-toggle').addEventListener('click', () => {
+                outlinePanel.classList.toggle('open');
+                if (outlinePanel.classList.contains('open')) updateOutline();
+            });
+
+            // ── Link Navigation ──
+            function interceptLinks(container) {
+                container.querySelectorAll('a').forEach(a => {
+                    const href = a.getAttribute('href');
+                    if (!href || !vaultHandle) return;
+                    // only intercept relative links to .md files or other vault files
+                    if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('#')) return;
+                    a.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        // resolve relative path from current file
+                        const basePath = currentFilePath ? currentFilePath.split('/').slice(0, -1).join('/') : '';
+                        let targetPath = href;
+                        if (basePath && !href.startsWith('/')) {
+                            targetPath = basePath + '/' + href;
+                        }
+                        // strip leading ./
+                        targetPath = targetPath.replace(/^\.\//, '');
+                        // normalize .. segments
+                        const parts = [];
+                        targetPath.split('/').forEach(p => {
+                            if (p === '..') parts.pop();
+                            else if (p !== '.' && p !== '') parts.push(p);
+                        });
+                        targetPath = parts.join('/');
+                        // find in tree
+                        const node = findNodeByPath(fileTree, targetPath);
+                        if (node) {
+                            openFile(node);
+                        } else {
+                            toast('リンク先が見つかりません: ' + href);
+                        }
+                    });
+                });
+            }
+
+            function findNodeByPath(nodes, path) {
+                for (const node of nodes) {
+                    if (node.path === path) return node;
+                    if (node.children) {
+                        const found = findNodeByPath(node.children, path);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            }
+
+            // ── Resolve Images from Vault ──
+            const blobCache = new Map(); // path -> blobURL
+            async function resolveImages(container) {
+                if (!vaultHandle) return;
+                const imgs = container.querySelectorAll('img');
+                for (const img of imgs) {
+                    const src = img.getAttribute('src');
+                    if (!src) continue;
+                    // skip already resolved blob/data/http URLs
+                    if (src.startsWith('blob:') || src.startsWith('data:') || src.startsWith('http://') || src.startsWith('https://')) continue;
+
+                    // decode %20 etc (Obsidian uses encoded filenames)
+                    const decoded = decodeURIComponent(src);
+
+                    // resolve relative to current file
+                    const basePath = currentFilePath ? currentFilePath.split('/').slice(0, -1).join('/') : '';
+                    let targetPath = decoded;
+                    if (basePath && !decoded.startsWith('/')) {
+                        targetPath = basePath + '/' + decoded;
+                    }
+                    // strip leading ./
+                    targetPath = targetPath.replace(/^\.\//g, '');
+                    // normalize .. segments
+                    const parts = [];
+                    targetPath.split('/').forEach(p => {
+                        if (p === '..') parts.pop();
+                        else if (p !== '.' && p !== '') parts.push(p);
+                    });
+                    targetPath = parts.join('/');
+
+                    // check cache
+                    if (blobCache.has(targetPath)) {
+                        img.src = blobCache.get(targetPath);
+                        continue;
+                    }
+
+                    // try to find in file tree
+                    let node = findNodeByPath(fileTree, targetPath);
+                    // if not found, search by filename only (Obsidian may not use relative path)
+                    if (!node) {
+                        const fileName = decoded.split('/').pop();
+                        node = allFiles.find(f => f.name === fileName);
+                    }
+                    if (node) {
+                        try {
+                            const file = await node.handle.getFile();
+                            const blobUrl = URL.createObjectURL(file);
+                            blobCache.set(targetPath, blobUrl);
+                            img.src = blobUrl;
+                        } catch (e) { /* skip unreadable */ }
+                    }
+                }
+            }
+
+            function escapeHtml(str) {
+                const d = document.createElement('div');
+                d.textContent = str;
+                return d.innerHTML;
+            }
+
+            window._copyCode = function (id, btn) {
+                const code = document.getElementById(id);
+                if (!code) return;
+                navigator.clipboard.writeText(code.textContent).then(() => {
+                    btn.classList.add('copied');
+                    const origText = btn.childNodes[btn.childNodes.length - 1];
+                    const origVal = origText.textContent;
+                    origText.textContent = ' ✓ Copied!';
+                    setTimeout(() => { btn.classList.remove('copied'); origText.textContent = origVal; }, 2000);
+                });
+            };
+
+            // ── Save ──
+            async function saveFile() {
+                if (!currentFileHandle) return;
+                try {
+                    const content = getEditorContent();
+                    const writable = await currentFileHandle.createWritable();
+                    await writable.write(content);
+                    await writable.close();
+                    originalContent = content;
+                    isUnsaved = false;
+                    unsavedDot.classList.remove('visible');
+                    document.title = 'Omni Editor';
+                    toast('保存しました ✓');
+                } catch (e) {
+                    console.error('Save failed:', e);
+                    toast('保存に失敗しました');
+                }
+            }
+
+            // ── New file ──
+            $('btn-new-file').addEventListener('click', () => {
+                if (!vaultHandle) return;
+                newFileName.value = '';
+                dialogNewFile.classList.add('active');
+                setTimeout(() => newFileName.focus(), 100);
+            });
+            $('btn-cancel-new').addEventListener('click', () => dialogNewFile.classList.remove('active'));
+            $('btn-create-new').addEventListener('click', createNewFile);
+            newFileName.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') createNewFile();
+                if (e.key === 'Escape') dialogNewFile.classList.remove('active');
+            });
+
+            async function createNewFile() {
+                let name = newFileName.value.trim();
+                if (!name) return;
+                if (!name.endsWith('.md') && !name.endsWith('.markdown') && !name.endsWith('.txt')) name += '.md';
+                try {
+                    const handle = await vaultHandle.getFileHandle(name, { create: true });
+                    const writable = await handle.createWritable();
+                    await writable.write(`# ${name.replace(/\.\w+$/, '')}\n\n`);
+                    await writable.close();
+                    dialogNewFile.classList.remove('active');
+                    await refreshTree();
+                    const node = allFiles.find(f => f.name === name);
+                    if (node) openFile(node);
+                    toast(`${name} を作成しました`);
+                } catch (e) {
+                    console.error('Create failed:', e);
+                    toast('ファイル作成に失敗しました');
+                }
+            }
+
+            // ── Search modal ──
+            $('btn-search').addEventListener('click', openSearch);
+
+            function openSearch() {
+                if (!vaultHandle || allFiles.length === 0) {
+                    toast('先にVaultを開いてください');
+                    return;
+                }
+                searchInput.value = '';
+                searchSelectedIdx = 0;
+                searchOverlay.classList.add('active');
+                renderSearchResults('');
+                setTimeout(() => searchInput.focus(), 100);
+            }
+
+            function closeSearch() {
+                searchOverlay.classList.remove('active');
+            }
+
+            searchOverlay.addEventListener('click', (e) => {
+                if (e.target === searchOverlay) closeSearch();
+            });
+
+            searchInput.addEventListener('input', () => {
+                searchSelectedIdx = 0;
+                renderSearchResults(searchInput.value);
+            });
+
+            searchInput.addEventListener('keydown', (e) => {
+                const items = searchResults.querySelectorAll('.search-result-item');
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    searchSelectedIdx = Math.min(searchSelectedIdx + 1, items.length - 1);
+                    updateSearchSelection(items);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    searchSelectedIdx = Math.max(searchSelectedIdx - 1, 0);
+                    updateSearchSelection(items);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (items[searchSelectedIdx]) items[searchSelectedIdx].click();
+                } else if (e.key === 'Escape') {
+                    closeSearch();
+                }
+            });
+
+            function renderSearchResults(query) {
+                const q = query.toLowerCase();
+                const filtered = allFiles.filter(f => {
+                    if (!q) return /\.(md|markdown|txt)$/i.test(f.name);
+                    return f.path.toLowerCase().includes(q);
+                }).slice(0, 30);
+
+                searchResults.innerHTML = '';
+                filtered.forEach((f, i) => {
+                    const div = document.createElement('div');
+                    div.className = 'search-result-item' + (i === searchSelectedIdx ? ' selected' : '');
+                    div.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>${escapeHtml(f.name)}</span><span class="search-result-path">${escapeHtml(f.path)}</span>`;
+                    div.addEventListener('click', () => { closeSearch(); openFile(f); });
+                    searchResults.appendChild(div);
+                });
+
+                if (filtered.length === 0) {
+                    searchResults.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px;">ファイルが見つかりません</div>';
+                }
+            }
+
+            function updateSearchSelection(items) {
+                items.forEach((el, i) => el.classList.toggle('selected', i === searchSelectedIdx));
+                if (items[searchSelectedIdx]) items[searchSelectedIdx].scrollIntoView({ block: 'nearest' });
+            }
+
+            // ── Full-text Search (Grep) ──
+            const grepOverlay = $('grep-overlay');
+            const grepInput = $('grep-input');
+            const grepResults = $('grep-results');
+            let grepDebounce = null;
+
+            function openGrep() {
+                grepOverlay.classList.add('active');
+                grepInput.value = '';
+                grepResults.innerHTML = '';
+                setTimeout(() => grepInput.focus(), 100);
+            }
+            function closeGrep() { grepOverlay.classList.remove('active'); }
+            grepOverlay.addEventListener('click', (e) => { if (e.target === grepOverlay) closeGrep(); });
+            grepInput.addEventListener('input', () => {
+                clearTimeout(grepDebounce);
+                grepDebounce = setTimeout(() => runGrep(grepInput.value), 300);
+            });
+            grepInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeGrep(); });
+
+            async function runGrep(query) {
+                if (!query || query.length < 2 || !vaultHandle) {
+                    grepResults.innerHTML = '';
+                    return;
+                }
+                const q = query.toLowerCase();
+                grepResults.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted)">検索中...</div>';
+                const results = [];
+                for (const f of allFiles) {
+                    if (!isTextLikely(f.name) && !isMarkdown(f.name)) continue;
+                    try {
+                        const file = await f.handle.getFile();
+                        const text = await file.text();
+                        const lines = text.split('\n');
+                        const matches = [];
+                        lines.forEach((line, i) => {
+                            if (line.toLowerCase().includes(q)) {
+                                matches.push({ lineNum: i + 1, line: line.trim() });
+                            }
+                        });
+                        if (matches.length > 0) {
+                            results.push({ file: f, matches: matches.slice(0, 5) });
+                        }
+                    } catch (e) { /* skip unreadable */ }
+                }
+                grepResults.innerHTML = '';
+                if (results.length === 0) {
+                    grepResults.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted)">マッチなし</div>';
+                    return;
+                }
+                results.slice(0, 20).forEach(r => {
+                    const group = document.createElement('div');
+                    group.className = 'grep-file-group';
+                    group.innerHTML = `<div class="grep-file-name">${escapeHtml(r.file.path)}</div>`;
+                    r.matches.forEach(m => {
+                        const div = document.createElement('div');
+                        div.className = 'grep-match';
+                        const highlighted = m.line.replace(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'), '<mark>$1</mark>');
+                        div.innerHTML = `<span class="line-num">${m.lineNum}</span>${highlighted}`;
+                        div.addEventListener('click', () => { closeGrep(); openFile(r.file); });
+                        group.appendChild(div);
+                    });
+                    grepResults.appendChild(group);
+                });
+            }
+
+            // ── Wiki Link Converter ──
+            const convertOverlay = $('convert-overlay');
+            const convertDiffs = $('convert-diffs');
+            const convertScope = $('convert-scope');
+            let pendingConversions = []; // [{file, handle, original, converted}]
+
+            function openConverter() {
+                convertOverlay.classList.add('active');
+                scanWikiLinks();
+            }
+            function closeConverter() { convertOverlay.classList.remove('active'); pendingConversions = []; }
+            $('btn-convert-cancel').addEventListener('click', closeConverter);
+            $('btn-convert').addEventListener('click', () => { if (vaultHandle) openConverter(); });
+            convertOverlay.addEventListener('click', (e) => { if (e.target === convertOverlay) closeConverter(); });
+            convertScope.addEventListener('change', () => scanWikiLinks());
+
+            async function scanWikiLinks() {
+                pendingConversions = [];
+                convertDiffs.innerHTML = '<div class="convert-empty">スキャン中...</div>';
+                const scope = convertScope.value;
+                const wikiRe = /(!?)\[\[([^\]]+)\]\]/g;
+                let filesToScan = [];
+                if (scope === 'current' && currentFileHandle) {
+                    filesToScan = [{ name: currentFilePath.split('/').pop(), path: currentFilePath, handle: currentFileHandle }];
+                } else {
+                    filesToScan = allFiles.filter(f => isMarkdown(f.name));
+                }
+                for (const f of filesToScan) {
+                    try {
+                        const file = await f.handle.getFile();
+                        const text = await file.text();
+                        if (!wikiRe.test(text)) continue;
+                        wikiRe.lastIndex = 0;
+                        const converted = text.replace(wikiRe, (match, embed, inner) => {
+                            // parse [[name|display]] or [[name#heading]] or [[name]]
+                            let name = inner, display = '', heading = '';
+                            if (inner.includes('|')) { [name, display] = inner.split('|', 2); }
+                            if (name.includes('#')) { [name, heading] = name.split('#', 2); }
+                            // resolve path
+                            const resolvedPath = resolveWikiPath(name, f.path);
+                            const hashPart = heading ? '#' + heading : '';
+                            const linkText = display || name;
+                            if (embed === '!') {
+                                return `![${linkText}](${resolvedPath}${hashPart})`;
+                            }
+                            return `[${linkText}](${resolvedPath}${hashPart})`;
+                        });
+                        if (converted !== text) {
+                            pendingConversions.push({ file: f, handle: f.handle, original: text, converted });
+                        }
+                    } catch (e) { /* skip */ }
+                }
+                renderConversionDiffs();
+            }
+
+            function resolveWikiPath(name, fromPath) {
+                // try to find exact match in allFiles
+                const match = allFiles.find(f => {
+                    const basename = f.name.replace(/\.\w+$/, '');
+                    return basename === name || f.name === name;
+                });
+                if (match) {
+                    // compute relative path from fromPath
+                    const fromDir = fromPath.split('/').slice(0, -1);
+                    const toParts = match.path.split('/');
+                    // find common prefix
+                    let common = 0;
+                    while (common < fromDir.length && common < toParts.length && fromDir[common] === toParts[common]) common++;
+                    const ups = fromDir.length - common;
+                    const rel = (ups > 0 ? '../'.repeat(ups) : './') + toParts.slice(common).join('/');
+                    return rel;
+                }
+                // fallback: assume same directory
+                if (!name.includes('.')) name += '.md';
+                return './' + name;
+            }
+
+            function renderConversionDiffs() {
+                convertDiffs.innerHTML = '';
+                if (pendingConversions.length === 0) {
+                    convertDiffs.innerHTML = '<div class="convert-empty">Wiki Link ([[...]]) は見つかりませんでした</div>';
+                    return;
+                }
+                pendingConversions.forEach(c => {
+                    const group = document.createElement('div');
+                    group.className = 'convert-diff-file';
+                    group.innerHTML = `<div class="convert-diff-file-name">${escapeHtml(c.file.path)}</div>`;
+                    // show diffs line by line
+                    const origLines = c.original.split('\n');
+                    const newLines = c.converted.split('\n');
+                    const maxLen = Math.max(origLines.length, newLines.length);
+                    let diffCount = 0;
+                    for (let i = 0; i < maxLen && diffCount < 20; i++) {
+                        if (origLines[i] !== newLines[i]) {
+                            diffCount++;
+                            const old = document.createElement('div');
+                            old.className = 'convert-diff-line old';
+                            old.textContent = `- ${origLines[i] || ''}`;
+                            group.appendChild(old);
+                            const nw = document.createElement('div');
+                            nw.className = 'convert-diff-line new';
+                            nw.textContent = `+ ${newLines[i] || ''}`;
+                            group.appendChild(nw);
+                        }
+                    }
+                    convertDiffs.appendChild(group);
+                });
+            }
+
+            $('btn-convert-apply').addEventListener('click', async () => {
+                if (pendingConversions.length === 0) return;
+                let count = 0;
+                for (const c of pendingConversions) {
+                    try {
+                        const writable = await c.handle.createWritable();
+                        await writable.write(c.converted);
+                        await writable.close();
+                        count++;
+                        if (c.handle === currentFileHandle) {
+                            setEditorContent(c.converted);
+                            originalContent = c.converted;
+                            isUnsaved = false;
+                            unsavedDot.classList.remove('visible');
+                            updatePreview();
+                        }
+                    } catch (e) { console.error('Convert write failed:', e); }
+                }
+                closeConverter();
+                toast(`${count} ファイルを変換しました ✓`);
+            });
+
+            // ── Find & Replace ──
+            const frOverlay = $('fr-overlay');
+            const frInput = $('fr-input');
+            const frReplaceInput = $('fr-replace');
+            const frCountEl = $('fr-count');
+
+            $('btn-findreplace').addEventListener('click', openFindReplace);
+            $('fr-close').addEventListener('click', closeFindReplace);
+            $('fr-next').addEventListener('click', frFindNext);
+            $('fr-prev').addEventListener('click', frFindPrev);
+            $('fr-replace-one').addEventListener('click', frReplaceCurrent);
+            $('fr-replace-all').addEventListener('click', frReplaceAll);
+            frInput.addEventListener('input', runFind);
+            frInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); e.shiftKey ? frFindPrev() : frFindNext(); }
+                if (e.key === 'Escape') closeFindReplace();
+            });
+            frReplaceInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeFindReplace(); });
+
+            function openFindReplace() {
+                if (!currentFilePath) { toast('ファイルを開いてください'); return; }
+                frOverlay.classList.add('active');
+                if (cmEditor) {
+                    const sel = cmEditor.state.sliceDoc(cmEditor.state.selection.main.from, cmEditor.state.selection.main.to);
+                    if (sel && !sel.includes('\n')) frInput.value = sel;
+                }
+                setTimeout(() => { frInput.select(); frInput.focus(); }, 80);
+                runFind();
+            }
+            function closeFindReplace() {
+                frOverlay.classList.remove('active');
+                frMatches = []; frCurrentIdx = -1; frCountEl.textContent = '';
+            }
+            function runFind() {
+                const q = frInput.value;
+                frMatches = [];
+                if (!q) { frCountEl.textContent = ''; return; }
+                const content = getEditorContent();
+                let idx = 0;
+                while (true) {
+                    const pos = content.indexOf(q, idx);
+                    if (pos === -1) break;
+                    frMatches.push({ from: pos, to: pos + q.length });
+                    idx = pos + 1;
+                }
+                frCurrentIdx = frMatches.length > 0 ? 0 : -1;
+                frCountEl.textContent = frMatches.length === 0 ? '0 件' : `${frCurrentIdx + 1} / ${frMatches.length}`;
+                if (frCurrentIdx >= 0) frScrollToMatch(frCurrentIdx);
+            }
+            function frScrollToMatch(idx) {
+                const m = frMatches[idx];
+                if (!m) return;
+                if (cmEditor) {
+                    cmEditor.dispatch({ selection: { anchor: m.from, head: m.to }, scrollIntoView: true });
+                    cmEditor.focus();
+                } else {
+                    editorTextarea.focus();
+                    editorTextarea.setSelectionRange(m.from, m.to);
+                }
+            }
+            function frFindNext() {
+                if (!frMatches.length) return;
+                frCurrentIdx = (frCurrentIdx + 1) % frMatches.length;
+                frCountEl.textContent = `${frCurrentIdx + 1} / ${frMatches.length}`;
+                frScrollToMatch(frCurrentIdx);
+            }
+            function frFindPrev() {
+                if (!frMatches.length) return;
+                frCurrentIdx = (frCurrentIdx - 1 + frMatches.length) % frMatches.length;
+                frCountEl.textContent = `${frCurrentIdx + 1} / ${frMatches.length}`;
+                frScrollToMatch(frCurrentIdx);
+            }
+            function frReplaceCurrent() {
+                if (frCurrentIdx < 0 || !frMatches.length) return;
+                const m = frMatches[frCurrentIdx];
+                const content = getEditorContent();
+                const newContent = content.substring(0, m.from) + frReplaceInput.value + content.substring(m.to);
+                setEditorContent(newContent);
+                isUnsaved = true;
+                setTimeout(runFind, 0);
+            }
+            function frReplaceAll() {
+                const q = frInput.value;
+                if (!q || !frMatches.length) return;
+                const count = frMatches.length;
+                setEditorContent(getEditorContent().split(q).join(frReplaceInput.value));
+                isUnsaved = true; unsavedDot.classList.add('visible'); document.title = '● Omni Editor';
+                setTimeout(() => { runFind(); toast(`${count} 箇所を置換しました ✓`); }, 0);
+            }
+
+            // ── Drag & Drop ──
+            (function initDragDrop() {
+                const mainArea = $('main-area');
+                let dragCounter = 0;
+                mainArea.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; dropOverlay.classList.add('active'); });
+                mainArea.addEventListener('dragleave', () => { if (--dragCounter <= 0) { dragCounter = 0; dropOverlay.classList.remove('active'); } });
+                mainArea.addEventListener('dragover', (e) => e.preventDefault());
+                mainArea.addEventListener('drop', async (e) => {
+                    e.preventDefault(); dragCounter = 0; dropOverlay.classList.remove('active');
+                    for (const item of [...(e.dataTransfer.items || [])]) {
+                        if (item.kind !== 'file') continue;
+                        if (typeof item.getAsFileSystemHandle === 'function') {
+                            try {
+                                const handle = await item.getAsFileSystemHandle();
+                                if (handle.kind === 'directory') {
+                                    await activateVault(handle);
+                                    toast(`${handle.name} をVaultとして開きました`);
+                                } else {
+                                    const file = await handle.getFile();
+                                    const text = await file.text();
+                                    currentFileHandle = handle; currentFilePath = handle.name;
+                                    originalContent = text; isUnsaved = false;
+                                    showDroppedEditor(handle.name, handle.name, text);
+                                    toast(`${handle.name} を開きました`);
+                                }
+                                return;
+                            } catch (err) { /* fallback */ }
+                        }
+                        const file = item.getAsFile();
+                        if (file) {
+                            try {
+                                const text = await file.text();
+                                currentFileHandle = null; currentFilePath = file.name;
+                                originalContent = text; isUnsaved = false;
+                                showDroppedEditor(file.name, file.name + ' (読み取り専用)', text);
+                                statusInfo.textContent = `${file.name} (読み取り専用)`;
+                                toast(`${file.name} を開きました`);
+                            } catch (err) { toast('ファイルを開けませんでした'); }
+                            return;
+                        }
+                    }
+                });
+            })();
+
+            function showDroppedEditor(name, path, text) {
+                fileTitleEl.textContent = name; filePathEl.textContent = path;
+                unsavedDot.classList.remove('visible');
+                welcomeScreen.style.display = 'none';
+                editorWrapper.classList.remove('hidden'); editorWrapper.style.display = 'flex';
+                editorArea.classList.remove('active'); previewArea.classList.remove('active');
+                viewerArea.classList.remove('active'); viewerArea.innerHTML = '';
+                document.querySelectorAll('.mode-tab').forEach(t => t.style.display = '');
+                setEditorContent(text);
+                setMode(currentMode === 'viewer' ? 'edit' : currentMode);
+                updateStats(); enableFileButtons();
+            }
+
+            // ── Vault HTML Export ──
+            $('btn-export-vault').addEventListener('click', async () => {
+                if (!vaultHandle) { toast('Vaultを開いてください'); return; }
+                try {
+                    const outDir = await window.showDirectoryPicker({ mode: 'readwrite' });
+                    toast('エクスポートを開始します...', 3000);
+                    let count = 0;
+
+                    async function exportDir(inDir, currentOutDir) {
+                        for await (const [name, handle] of inDir.entries()) {
+                            if (name.startsWith('.')) continue; // skip hidden
+                            if (handle.kind === 'directory') {
+                                const newOutDir = await currentOutDir.getDirectoryHandle(name, { create: true });
+                                await exportDir(handle, newOutDir);
+                            } else {
+                                const file = await handle.getFile();
+                                const isMd = isMarkdown(name);
+                                const outName = isMd ? name.replace(/\.\w+$/, '.html') : name;
+                                const outHandle = await currentOutDir.getFileHandle(outName, { create: true });
+                                const writable = await outHandle.createWritable();
+                                
+                                if (isMd) {
+                                    const text = await file.text();
+                                    const fm = processFrontmatter(text);
+                                    let html = fm.html + processAlerts(marked.parse(fm.md));
+                                    
+                                    // Replace links .md -> .html
+                                    html = html.replace(/href="([^"]+)\.(md|markdown)(#.*?)?"/g, 'href="$1.html$3"');
+                                    
+                                    const isLight = document.body.classList.contains('light-mode');
+                                    const hljsTheme = isLight ? 'github' : 'github-dark';
+                                    const appCSS = document.querySelector('style')?.textContent || '';
+                                    const title = name.replace(/\.\w+$/, '');
+                                    
+                                    const outHtml = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>${escapeHtml(title)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${hljsTheme}.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"><\/script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"><\/script>
+<style>${appCSS}
+body{overflow:auto!important;height:auto!important;font-family:'Inter',sans-serif;background:var(--bg-primary);color:var(--text-primary);padding:32px;}</style>
+</head>
+<body class="${isLight ? 'light-mode' : ''}">
+<article class="markdown-body" style="max-width:880px;margin:0 auto;">${html}</article>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const blocks = document.querySelectorAll('code.language-mermaid');
+        blocks.forEach(block => {
+            const pre = block.closest('pre');
+            const wrapper = pre?.parentElement;
+            if (!wrapper) return;
+            const el = document.createElement('div');
+            el.className = 'mermaid';
+            el.textContent = block.textContent;
+            wrapper.replaceWith(el);
+        });
+        if (blocks.length > 0 && window.mermaid) {
+            mermaid.initialize({ startOnLoad: true, theme: '${isLight ? 'default' : 'dark'}' });
+            mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
+        }
+        document.querySelectorAll('pre code').forEach(b => { 
+            if (!b.classList.contains('hljs') && window.hljs) hljs.highlightElement(b); 
+        });
+    });
+<\/script>
+</body></html>`;
+                                    await writable.write(outHtml);
+                                } else {
+                                    // For images and other files, copy as is
+                                    await writable.write(file);
+                                }
+                                await writable.close();
+                                count++;
+                            }
+                        }
+                    }
+
+                    await exportDir(vaultHandle, outDir);
+                    toast('Vault全体をエクスポートしました ✓');
+                } catch (e) {
+                    if (e.name !== 'AbortError') {
+                        console.error('Vault export failed:', e);
+                        toast('エクスポートに失敗しました');
+                    }
+                }
+            });
+
+            // ── HTML Export ──
+            $('btn-export-html').addEventListener('click', exportHTML);
+            async function exportHTML() {
+                if (!currentFilePath) { toast('ファイルを開いてください'); return; }
+                const tempDiv = document.createElement('div');
+                const fm = processFrontmatter(getEditorContent());
+                tempDiv.innerHTML = fm.html + processAlerts(marked.parse(fm.md));
+                tempDiv.querySelectorAll('pre code').forEach(b => { if (!b.classList.contains('hljs')) hljs.highlightElement(b); });
+                const isLight = document.body.classList.contains('light-mode');
+                const hljsTheme = isLight ? 'github' : 'github-dark';
+                const appCSS = document.querySelector('style')?.textContent || '';
+                const title = currentFilePath.split('/').pop().replace(/\.\w+$/, '');
+                const out = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>${escapeHtml(title)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${hljsTheme}.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"><\/script>
+<style>${appCSS}
+body{overflow:auto!important;height:auto!important;font-family:'Inter',sans-serif;background:var(--bg-primary);color:var(--text-primary);padding:32px;}</style>
+</head>
+<body class="${isLight ? 'light-mode' : ''}">
+<article class="markdown-body" style="max-width:880px;margin:0 auto;">${tempDiv.innerHTML}</article>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const blocks = document.querySelectorAll('code.language-mermaid');
+        blocks.forEach(block => {
+            const pre = block.closest('pre');
+            const wrapper = pre?.parentElement;
+            if (!wrapper) return;
+            const el = document.createElement('div');
+            el.className = 'mermaid';
+            el.textContent = block.textContent;
+            wrapper.replaceWith(el);
+        });
+        if (blocks.length > 0 && window.mermaid) {
+            mermaid.initialize({ startOnLoad: true, theme: '${isLight ? 'default' : 'dark'}' });
+            mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
+        }
+    });
+<\/script>
+</body></html>`;
+                const a = Object.assign(document.createElement('a'), {
+                    href: URL.createObjectURL(new Blob([out], { type: 'text/html;charset=utf-8' })),
+                    download: title + '.html'
+                });
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+                toast('HTMLをエクスポートしました ✓');
+            }
+
+            // ── Print ──
+            $('btn-print').addEventListener('click', () => {
+                if (!currentFilePath) { toast('ファイルを開いてください'); return; }
+                updatePreview();
+                window.print();
+            });
+
+            // ── Vim mode toggle ──
+            function toggleVimMode() {
+                vimEnabled = !vimEnabled;
+                localStorage.setItem('md-editor-vim', vimEnabled);
+                vimBadge.classList.toggle('active', vimEnabled);
+                if (cmEditor && vimComp && cmModules) {
+                    cmEditor.dispatch({ effects: vimComp.reconfigure(vimEnabled ? cmModules.vim() : []) });
+                }
+                toast(vimEnabled ? 'Vim mode ON' : 'Vim mode OFF');
+            }
+
+            // ── Keyboard shortcuts (capture phase: fires before CM) ──
+            document.addEventListener('keydown', (e) => {
+                const ctrl = e.ctrlKey || e.metaKey;
+                if (ctrl && e.key === 's') { e.preventDefault(); saveFile(); }
+                if (ctrl && e.key === 'p') { e.preventDefault(); openSearch(); }
+                if (ctrl && e.key === 'h') { e.preventDefault(); openFindReplace(); }
+                if (ctrl && e.shiftKey && e.key === 'F') { e.preventDefault(); openGrep(); }
+                if (ctrl && e.shiftKey && e.key === 'O') { e.preventDefault(); openVault(); }
+                if (ctrl && e.shiftKey && e.key === 'E') { e.preventDefault(); exportHTML(); }
+                if (ctrl && e.shiftKey && e.key === 'P') { e.preventDefault(); if (currentFilePath) { updatePreview(); window.print(); } }
+                if (ctrl && e.altKey && e.key === 'v') { e.preventDefault(); toggleVimMode(); }
+                if (ctrl && e.key === 'e') {
+                    e.preventDefault();
+                    const cycle = { edit: 'preview', preview: 'split', split: 'edit' };
+                    setMode(cycle[currentMode] || 'edit');
+                }
+                if (e.key === 'Escape') {
+                    if (frOverlay.classList.contains('active')) { closeFindReplace(); return; }
+                    if (searchOverlay.classList.contains('active')) { closeSearch(); return; }
+                    if (dialogNewFile.classList.contains('active')) { dialogNewFile.classList.remove('active'); return; }
+                    if (grepOverlay.classList.contains('active')) { closeGrep(); return; }
+                    if (convertOverlay.classList.contains('active')) { closeConverter(); return; }
+                    if (helpOverlay.classList.contains('active')) { helpOverlay.classList.remove('active'); return; }
+                }
+            }, true);
+
+            // ── Tab key in textarea ──
+            function handleTab(textarea) {
+                textarea.addEventListener('keydown', (e) => {
+                    if (e.key === 'Tab') {
+                        e.preventDefault();
+                        const start = textarea.selectionStart;
+                        const end = textarea.selectionEnd;
+                        textarea.value = textarea.value.substring(0, start) + '    ' + textarea.value.substring(end);
+                        textarea.selectionStart = textarea.selectionEnd = start + 4;
+                        textarea.dispatchEvent(new Event('input'));
+                    }
+                });
+            }
+            handleTab(editorTextarea);
+            handleTab(splitTextarea);
+
+            // ── Daily Note ──
+            $('btn-daily').addEventListener('click', createDailyNote);
+            async function createDailyNote() {
+                if (!vaultHandle) return;
+                const now = new Date();
+                const y = now.getFullYear();
+                const m = String(now.getMonth() + 1).padStart(2, '0');
+                const d = String(now.getDate()).padStart(2, '0');
+                const filename = `${y}-${m}-${d}.md`;
+                try {
+                    // try to get existing
+                    let handle;
+                    try {
+                        handle = await vaultHandle.getFileHandle(filename);
+                    } catch {
+                        // create new
+                        handle = await vaultHandle.getFileHandle(filename, { create: true });
+                        const writable = await handle.createWritable();
+                        await writable.write(`# ${y}-${m}-${d}\n\n`);
+                        await writable.close();
+                        await refreshTree();
+                        toast(`${filename} を作成しました`);
+                    }
+                    // open it
+                    const file = await handle.getFile();
+                    const text = await file.text();
+                    currentFileHandle = handle;
+                    currentFilePath = filename;
+                    originalContent = text;
+                    isUnsaved = false;
+                    saveLastFile(filename);  // Save last opened file
+                    fileTitleEl.textContent = filename;
+                    filePathEl.textContent = filename;
+                    unsavedDot.classList.remove('visible');
+                    welcomeScreen.style.display = 'none';
+                    editorWrapper.classList.remove('hidden');
+                    editorWrapper.style.display = 'flex';
+                    setEditorContent(text);
+                    document.querySelectorAll('.mode-tab').forEach(t => t.style.display = '');
+                    viewerArea.classList.remove('active');
+                    const savedMode = currentMode === 'viewer' ? 'edit' : currentMode;
+                    setMode(savedMode);
+                    updateStats();
+                    statusInfo.textContent = filename;
+                    enableFileButtons();
+                } catch (e) {
+                    console.error('Daily note failed:', e);
+                    toast('Daily Noteの作成に失敗しました');
+                }
+            }
+
+            // ── Browser compat check ──
+            if (!('showDirectoryPicker' in window)) {
+                statusInfo.textContent = '⚠ File System Access API 非対応ブラウザ';
+                welcomeScreen.querySelector('p').textContent = 'このブラウザはFile System Access APIに対応していません。Chrome/Edgeでお試しください。';
+                $('btn-vault').disabled = true;
+            }
+
+            // ── Initialize CodeMirror ──
+            try {
+                const cm = await import('https://esm.sh/codemirror@6.0.1');
+                const langMd = await import('https://esm.sh/@codemirror/lang-markdown@6.2.0');
+                const themeOneDark = await import('https://esm.sh/@codemirror/theme-one-dark@6.1.2');
+                const cmVim = await import('https://esm.sh/@replit/codemirror-vim@6.1.0');
+                const cmState = await import('https://esm.sh/@codemirror/state@6.2.1');
+
+                cmModules = {
+                    EditorView: cm.EditorView,
+                    basicSetup: cm.basicSetup,
+                    markdown: langMd.markdown,
+                    oneDark: themeOneDark.oneDark,
+                    vim: cmVim.vim,
+                    Compartment: cmState.Compartment
+                };
+
+                themeComp = new cmModules.Compartment();
+                vimComp = new cmModules.Compartment();
+
+                const isLight = document.body.classList.contains('light-mode');
+                vimBadge.classList.toggle('active', vimEnabled);
+
+                const editorDiv = document.createElement('div');
+                editorDiv.id = 'cm-editor';
+                editorArea.appendChild(editorDiv);
+
+                cmEditor = new cmModules.EditorView({
+                    doc: editorTextarea.value,
+                    extensions: [
+                        cmModules.basicSetup,
+                        cmModules.markdown(),
+                        themeComp.of(isLight ? [] : cmModules.oneDark),
+                        vimComp.of(vimEnabled ? cmModules.vim() : []),
+                        cmModules.EditorView.updateListener.of(update => {
+                            if (update.docChanged && !cmSyncingFromSplit) {
+                                editorTextarea.value = update.state.doc.toString();
+                                editorTextarea.dispatchEvent(new Event('input'));
+                            }
+                        })
+                    ],
+                    parent: editorDiv
+                });
+
+                editorTextarea.style.display = 'none';
+
+            } catch (e) {
+                console.error('Failed to load CodeMirror', e);
+            }
+        })();
+    </script>
+</body>
+
+</html>
