@@ -1550,6 +1550,14 @@
                 </svg>
                 新規
             </button>
+            <button class="btn" id="btn-new-folder" title="新規フォルダ" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+                    <line x1="12" y1="11" x2="12" y2="17" />
+                    <line x1="9" y1="14" x2="15" y2="14" />
+                </svg>
+                フォルダ
+            </button>
             <button class="btn" id="btn-daily" title="Daily Note" disabled>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="3" y="4" width="18" height="18" rx="2" />
@@ -1757,6 +1765,17 @@
             <div class="dialog-actions">
                 <button class="btn" id="btn-cancel-new">キャンセル</button>
                 <button class="btn btn-accent" id="btn-create-new">作成</button>
+            </div>
+        </div>
+    </div>
+    <!-- New Folder Dialog -->
+    <div class="dialog-overlay" id="dialog-new-folder">
+        <div class="dialog-box">
+            <h3>新規フォルダ</h3>
+            <input type="text" id="new-folder-name" placeholder="folder-name">
+            <div class="dialog-actions">
+                <button class="btn" id="btn-cancel-new-folder">キャンセル</button>
+                <button class="btn btn-accent" id="btn-create-new-folder">作成</button>
             </div>
         </div>
     </div>
@@ -2152,6 +2171,7 @@
                 vaultHandle = handle;
                 vaultNameEl.textContent = vaultHandle.name;
                 $('btn-new-file').disabled = false;
+                $('btn-new-folder').disabled = false;
                 $('btn-daily').disabled = false;
                 $('btn-convert').disabled = false;
                 await refreshTree();
@@ -2470,6 +2490,8 @@
                     const item = document.createElement('div');
                     item.className = 'tree-item' + (node.kind === 'directory' ? ' dir' : '');
                     if (node.path === currentFilePath) item.classList.add('active');
+                    item.draggable = true;
+                    item.dataset.path = node.path;
 
                     // indent
                     for (let i = 0; i < depth; i++) {
@@ -2508,6 +2530,23 @@
                             saveState();  // Save state when tree is expanded/collapsed
                         });
 
+                        // Drag & Drop for directory
+                        item.addEventListener('dragover', (e) => {
+                            e.preventDefault();
+                            item.style.background = 'var(--accent-glow)';
+                        });
+                        item.addEventListener('dragleave', () => {
+                            item.style.background = '';
+                        });
+                        item.addEventListener('drop', async (e) => {
+                            e.preventDefault();
+                            item.style.background = '';
+                            const sourcePath = e.dataTransfer.getData('text/plain');
+                            if (sourcePath && sourcePath !== node.path) {
+                                await moveFileSystemItem(sourcePath, node);
+                            }
+                        });
+
                         renderNodes(node.children, childContainer, depth + 1);
                     } else {
                         // file icon
@@ -2542,7 +2581,74 @@
 
                         item.addEventListener('click', () => openFile(node));
                     }
+
+                    item.addEventListener('dragstart', (e) => {
+                        e.dataTransfer.setData('text/plain', node.path);
+                        e.dataTransfer.effectAllowed = 'move';
+                    });
                 }
+            }
+
+            async function moveFileSystemItem(sourcePath, targetNode) {
+                if (!vaultHandle) return;
+                const sourceNode = findNodeByPath(fileTree, sourcePath);
+                if (!sourceNode || !targetNode || targetNode.kind !== 'directory') return;
+
+                // Prevent moving a directory into itself or its own children
+                if (targetNode.path.startsWith(sourceNode.path)) {
+                    toast('自分自身やその子フォルダには移動できません');
+                    return;
+                }
+
+                try {
+                    toast('移動中...', 3000);
+                    
+                    // Recursive move function
+                    async function moveRecursive(node, targetDirHandle) {
+                        if (node.kind === 'file') {
+                            const file = await node.handle.getFile();
+                            const newFileHandle = await targetDirHandle.getFileHandle(node.name, { create: true });
+                            const writable = await newFileHandle.createWritable();
+                            await writable.write(file);
+                            await writable.close();
+                        } else {
+                            const newDirHandle = await targetDirHandle.getDirectoryHandle(node.name, { create: true });
+                            for (const child of node.children) {
+                                await moveRecursive(child, newDirHandle);
+                            }
+                        }
+                    }
+
+                    // Perform the move (copy then delete)
+                    await moveRecursive(sourceNode, targetNode.handle);
+                    
+                    // Delete the original
+                    const parentDirNode = findParentDirNode(fileTree, sourcePath);
+                    const parentHandle = parentDirNode ? parentDirNode.handle : vaultHandle;
+                    await parentHandle.removeEntry(sourceNode.name, { recursive: true });
+
+                    await refreshTree();
+                    toast(`${sourceNode.name} を移動しました ✓`);
+                    
+                    // If the moved file was the current one, update state
+                    if (currentFilePath === sourcePath || currentFilePath.startsWith(sourcePath + '/')) {
+                        const newPath = targetNode.path + '/' + sourceNode.name + currentFilePath.substring(sourcePath.length);
+                        currentFilePath = newPath;
+                        saveLastFile(newPath);
+                        statusInfo.textContent = newPath;
+                        filePathEl.textContent = newPath;
+                    }
+                } catch (e) {
+                    console.error('Move failed:', e);
+                    toast('移動に失敗しました');
+                }
+            }
+
+            function findParentDirNode(nodes, targetPath) {
+                const parts = targetPath.split('/');
+                if (parts.length === 1) return null;
+                const parentPath = parts.slice(0, -1).join('/');
+                return findNodeByPath(nodes, parentPath);
             }
 
             // ── File type helpers ──
@@ -3221,6 +3327,34 @@
                 } catch (e) {
                     console.error('Create failed:', e);
                     toast('ファイル作成に失敗しました');
+                }
+            }
+
+            // ── New folder ──
+            $('btn-new-folder').addEventListener('click', () => {
+                if (!vaultHandle) return;
+                $('new-folder-name').value = '';
+                $('dialog-new-folder').classList.add('active');
+                setTimeout(() => $('new-folder-name').focus(), 100);
+            });
+            $('btn-cancel-new-folder').addEventListener('click', () => $('dialog-new-folder').classList.remove('active'));
+            $('btn-create-new-folder').addEventListener('click', createNewFolder);
+            $('new-folder-name').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') createNewFolder();
+                if (e.key === 'Escape') $('dialog-new-folder').classList.remove('active');
+            });
+
+            async function createNewFolder() {
+                const name = $('new-folder-name').value.trim();
+                if (!name || !vaultHandle) return;
+                try {
+                    await vaultHandle.getDirectoryHandle(name, { create: true });
+                    $('dialog-new-folder').classList.remove('active');
+                    await refreshTree();
+                    toast(`フォルダ ${name} を作成しました`);
+                } catch (e) {
+                    console.error('Folder create failed:', e);
+                    toast('フォルダ作成に失敗しました');
                 }
             }
 
