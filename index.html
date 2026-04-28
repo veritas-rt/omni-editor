@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
         id="hljs-theme">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked-katex-extension/lib/index.umd.js"></script>
@@ -2684,18 +2685,22 @@
                 return md;
             }
 
-            function updateSplitPreview() {
-                let contentToParse = splitTextarea.value || getEditorContent();
-                const ext = getFileExt(currentFilePath);
+            function formatTextContentForPreview(content, filePath) {
+                const ext = getFileExt(filePath);
                 if (ext === 'csv') {
-                    contentToParse = csvToMarkdownTable(contentToParse);
+                    return csvToMarkdownTable(content);
                 } else if (ext === 'json') {
-                    contentToParse = '```json\n' + contentToParse + '\n```';
+                    return '```json\n' + content + '\n```';
                 } else if (ext === 'yml' || ext === 'yaml') {
-                    contentToParse = '```yaml\n' + contentToParse + '\n```';
-                } else if (!isMarkdown(currentFilePath) && isTextLikely(currentFilePath)) {
-                    contentToParse = '```' + (ext || 'text') + '\n' + contentToParse + '\n```';
+                    return '```yaml\n' + content + '\n```';
+                } else if (!isMarkdown(filePath) && isTextLikely(filePath)) {
+                    return '```' + (ext || 'text') + '\n' + content + '\n```';
                 }
+                return content;
+            }
+
+            function updateSplitPreview() {
+                let contentToParse = formatTextContentForPreview(splitTextarea.value || getEditorContent(), currentFilePath);
                 
                 const fm = processFrontmatter(contentToParse);
                 let html = fm.html + marked.parse(fm.md);
@@ -2803,7 +2808,8 @@
             }
 
             function updatePreview() {
-                const fm = processFrontmatter(getEditorContent());
+                const contentToParse = formatTextContentForPreview(getEditorContent(), currentFilePath);
+                const fm = processFrontmatter(contentToParse);
                 let html = fm.html + marked.parse(fm.md);
                 html = processAlerts(html);
                 markdownBody.innerHTML = html;
@@ -3570,8 +3576,9 @@ body{overflow:auto!important;height:auto!important;font-family:'Inter',sans-seri
             $('btn-export-html').addEventListener('click', exportHTML);
             async function exportHTML() {
                 if (!currentFilePath) { toast('ファイルを開いてください'); return; }
+                const contentToParse = formatTextContentForPreview(getEditorContent(), currentFilePath);
                 const tempDiv = document.createElement('div');
-                const fm = processFrontmatter(getEditorContent());
+                const fm = processFrontmatter(contentToParse);
                 tempDiv.innerHTML = fm.html + processAlerts(marked.parse(fm.md));
                 tempDiv.querySelectorAll('pre code').forEach(b => { if (!b.classList.contains('hljs')) hljs.highlightElement(b); });
                 const isLight = document.body.classList.contains('light-mode');
@@ -3741,11 +3748,13 @@ body{overflow:auto!important;height:auto!important;font-family:'Inter',sans-seri
 
             // ── Initialize CodeMirror ──
             try {
-                const cm = await import('https://esm.sh/codemirror@6.0.1');
-                const langMd = await import('https://esm.sh/@codemirror/lang-markdown@6.2.0');
-                const themeOneDark = await import('https://esm.sh/@codemirror/theme-one-dark@6.1.2');
-                const cmVim = await import('https://esm.sh/@replit/codemirror-vim@6.1.0');
-                const cmState = await import('https://esm.sh/@codemirror/state@6.2.1');
+                const [cm, langMd, themeOneDark, cmVim, cmState] = await Promise.all([
+                    import('https://esm.sh/codemirror'),
+                    import('https://esm.sh/@codemirror/lang-markdown'),
+                    import('https://esm.sh/@codemirror/theme-one-dark'),
+                    import('https://esm.sh/@replit/codemirror-vim'),
+                    import('https://esm.sh/@codemirror/state')
+                ]);
 
                 cmModules = {
                     EditorView: cm.EditorView,
