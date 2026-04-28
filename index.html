@@ -3792,12 +3792,12 @@ body{overflow:auto!important;height:auto!important;font-family:'Inter',sans-seri
                     safeHide('btn-convert');
                     safeHide('drop-overlay');
                     
-                    // Inject the portable data script at the end of body
+                    // Inject the portable data script at the beginning of body so it's available for the main script
                     const scriptEl = docClone.createElement('script');
                     scriptEl.id = 'portable-data';
                     scriptEl.type = 'application/json';
                     scriptEl.textContent = jsonStr;
-                    docClone.body.appendChild(scriptEl);
+                    docClone.body.insertBefore(scriptEl, docClone.body.firstChild);
                     
                     const htmlText = "<!DOCTYPE html>\n" + docClone.documentElement.outerHTML;
                     const blob = new Blob([htmlText], { type: 'text/html;charset=utf-8' });
