@@ -2352,12 +2352,10 @@
                                 if (data.startsWith('data:')) {
                                     const res = await fetch(data);
                                     const blob = await res.blob();
-                                    return Object.assign(blob, { name: name });
+                                    return new File([blob], name, { type: blob.type });
                                 } else {
-                                    return {
-                                        size: new Blob([data]).size,
-                                        text: async () => data
-                                    };
+                                    const type = isMarkdown(name) ? 'text/markdown' : 'text/plain';
+                                    return new File([data], name, { type });
                                 }
                             },
                             createWritable: async () => ({ write: async () => toast('読み取り専用です'), close: async () => {} })
@@ -3700,9 +3698,6 @@ body{overflow:auto!important;height:auto!important;font-family:'Inter',sans-seri
                 if (!vaultHandle) { toast('Vaultを開いてください'); return; }
                 toast('ポータブル版を生成中...', 3000);
                 try {
-                    const res = await fetch(window.location.pathname); // fetch the clean HTML source
-                    let htmlText = await res.text();
-                    
                     const portableData = {
                         name: vaultHandle.name,
                         files: {}
@@ -3725,9 +3720,59 @@ body{overflow:auto!important;height:auto!important;font-family:'Inter',sans-seri
                     }
                     
                     const jsonStr = JSON.stringify(portableData).replace(/</g, '\\u003c');
-                    const injectScript = `<script id="portable-data" type="application/json">${jsonStr}<\/script>\n</body>`;
-                    htmlText = htmlText.replace('</body>', injectScript);
                     
+                    // Clone the document to create a clean offline export
+                    const docClone = document.cloneNode(true);
+                    
+                    const safeRemove = (id) => { const el = docClone.getElementById(id); if (el) el.remove(); };
+                    const safeEmpty = (id) => { const el = docClone.getElementById(id); if (el) el.innerHTML = ''; };
+                    
+                    // Clean up current state in the clone
+                    safeRemove('portable-data');
+                    safeEmpty('file-tree');
+                    safeEmpty('markdown-body');
+                    safeEmpty('split-preview-body');
+                    safeEmpty('viewer-area');
+                    safeEmpty('cm-editor');
+                    
+                    const viewer = docClone.getElementById('viewer-area');
+                    if (viewer) viewer.classList.remove('active');
+                    const edWrapper = docClone.getElementById('editor-wrapper');
+                    if (edWrapper) edWrapper.style.display = 'none';
+                    const welcome = docClone.getElementById('welcome-screen');
+                    if (welcome) welcome.style.display = 'flex';
+                    
+                    const vName = docClone.getElementById('vault-name');
+                    if (vName) vName.textContent = 'Vault未選択';
+                    const fTitle = docClone.getElementById('file-title');
+                    if (fTitle) fTitle.textContent = '';
+                    const fPath = docClone.getElementById('file-path-display');
+                    if (fPath) fPath.textContent = '';
+                    
+                    const edText = docClone.getElementById('editor-textarea');
+                    if (edText) edText.textContent = '';
+                    const spText = docClone.getElementById('split-textarea');
+                    if (spText) spText.textContent = '';
+                    
+                    // Remove UI elements not needed in portable mode
+                    safeRemove('btn-vault');
+                    safeRemove('btn-new-file');
+                    safeRemove('btn-daily');
+                    safeRemove('autosave-toggle');
+                    safeRemove('restore-toggle');
+                    safeRemove('btn-export-html');
+                    safeRemove('btn-export-vault');
+                    safeRemove('btn-convert');
+                    safeRemove('drop-overlay');
+                    
+                    // Inject the portable data script at the end of body
+                    const scriptEl = docClone.createElement('script');
+                    scriptEl.id = 'portable-data';
+                    scriptEl.type = 'application/json';
+                    scriptEl.textContent = jsonStr;
+                    docClone.body.appendChild(scriptEl);
+                    
+                    const htmlText = "<!DOCTYPE html>\n" + docClone.documentElement.outerHTML;
                     const blob = new Blob([htmlText], { type: 'text/html;charset=utf-8' });
                     const a = Object.assign(document.createElement('a'), {
                         href: URL.createObjectURL(blob),
@@ -3739,7 +3784,7 @@ body{overflow:auto!important;height:auto!important;font-family:'Inter',sans-seri
                     
                 } catch(e) {
                     console.error(e);
-                    toast('エクスポートに失敗しました (ローカルサーバーまたはHTTPS上で動作している必要があります)');
+                    toast('エクスポートに失敗しました');
                 }
             }
 
