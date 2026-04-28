@@ -2559,7 +2559,8 @@
 
             // ── Editor events ──
             function onEditorInput() {
-                const changed = editorTextarea.value !== originalContent;
+                const normalizedOriginal = originalContent ? originalContent.replace(/\r\n/g, '\n') : '';
+                const changed = editorTextarea.value !== normalizedOriginal;
                 if (changed !== isUnsaved) {
                     isUnsaved = changed;
                     unsavedDot.classList.toggle('visible', isUnsaved);
